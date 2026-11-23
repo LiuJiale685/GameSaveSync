@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon />
+    <AssemblyName>GameSaveSync</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameSaveSync.Core\GameSaveSync.Core.csproj" />
+    <ProjectReference Include="..\GameSaveSync.Storage\GameSaveSync.Storage.csproj" />
+    <ProjectReference Include="..\GameSaveSync.FileSystem\GameSaveSync.FileSystem.csproj" />
+    <ProjectReference Include="..\GameSaveSync.Snapshot\GameSaveSync.Snapshot.csproj" />
+    <ProjectReference Include="..\GameSaveSync.Sync\GameSaveSync.Sync.csproj" />
+    <ProjectReference Include="..\GameSaveSync.Data\GameSaveSync.Data.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+</Project>

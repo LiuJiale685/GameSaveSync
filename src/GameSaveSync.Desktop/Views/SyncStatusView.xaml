@@ -1,0 +1,99 @@
+<UserControl x:Class="GameSaveSync.Desktop.Views.SyncStatusView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+    <DockPanel>
+        <!-- 顶部：游戏选择 + 扫描 + 状态 -->
+        <StackPanel DockPanel.Dock="Top" Margin="8,8,8,4">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="游戏：" VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding SelectedGame}"
+                          DisplayMemberPath="DisplayName" Width="220" Margin="4,0,0,0"/>
+                <Button Content="扫描同步状态" Command="{Binding ScanCommand}" Padding="10,3" Margin="10,0,0,0"/>
+                <Button Content="刷新游戏" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="10,0,0,0"/>
+                <ProgressBar Width="80" Height="12" IsIndeterminate="True" VerticalAlignment="Center" Margin="10,0,0,0"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="8,0,0,0"
+                           Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="340"/>
+            </StackPanel>
+
+            <!-- 同步报告 -->
+            <Border BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Margin="0,8,0,0" Padding="8">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="状态：" FontWeight="Bold"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding StatusDisplay}" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="本地状态：" FontWeight="Bold"/>
+                        <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding LocalStateDisplay}" TextWrapping="Wrap"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Head 版本：" FontWeight="Bold"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding HeadsDisplay}" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="上次应用：" FontWeight="Bold"/>
+                        <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding LastAppliedDisplay}" TextWrapping="Wrap"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="等待同步：" FontWeight="Bold"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding WaitingDisplay}" Grid.ColumnSpan="3" TextWrapping="Wrap"/>
+                    </Grid>
+                    <TextBlock Text="{Binding ReportMessage}" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="#555"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock Text="建议应用的远端版本：" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding CandidateDisplay}" VerticalAlignment="Center" Margin="6,0,0,0" TextWrapping="Wrap"/>
+                        <Button Content="应用远端版本" Command="{Binding ApplyRemoteCommand}" Padding="10,3" Margin="12,0,0,0"
+                                Visibility="{Binding HasCandidate, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- 冲突列表 -->
+        <GroupBox Header="冲突列表" Margin="8,8,8,8">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,4,0,4">
+                    <Button Content="刷新冲突列表" Command="{Binding RefreshConflictsCommand}" Padding="10,3"/>
+                    <TextBlock Text="{Binding ConflictSummary}" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="Gray"/>
+                </StackPanel>
+                <ListView ItemsSource="{Binding Conflicts}">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="游戏（GameId 前 8 位）" DisplayMemberBinding="{Binding GameDisplay}" Width="130"/>
+                            <GridViewColumn Header="发现时间" DisplayMemberBinding="{Binding CreatedDisplay}" Width="150"/>
+                            <GridViewColumn Header="本机版本" DisplayMemberBinding="{Binding LocalCommitDisplay}" Width="90"/>
+                            <GridViewColumn Header="云端版本" DisplayMemberBinding="{Binding RemoteCommitsDisplay}" Width="180"/>
+                            <GridViewColumn Header="处理选项" Width="420">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="保留本机" Padding="8,2" Margin="0,0,6,0"
+                                                    Command="{Binding DataContext.KeepLocalCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Content="使用云端" Padding="8,2" Margin="0,0,6,0"
+                                                    Command="{Binding DataContext.UseRemoteCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Content="分别保留到临时目录" Padding="8,2"
+                                                    Command="{Binding DataContext.KeepBothCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </DockPanel>
+        </GroupBox>
+    </DockPanel>
+</UserControl>
