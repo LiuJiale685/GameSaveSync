@@ -5,23 +5,27 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
     <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,8,8,4">
-            <Button Content="添加游戏" Command="{Binding AddGameCommand}" Padding="10,3" Margin="0,0,8,0"/>
-            <Button Content="从仓库绑定已有游戏" Command="{Binding BindFromRepoCommand}" Padding="10,3" Margin="0,0,8,0"/>
-            <Button Content="刷新" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="0,0,8,0"/>
-            <Button Content="刷新状态" Command="{Binding RefreshStatusCommand}" Padding="10,3" Margin="0,0,12,0"/>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="10,10,10,6">
+            <Button Content="添加游戏" Command="{Binding AddGameCommand}" Padding="10,3" Margin="0,0,8,0"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+            <Button Content="从仓库绑定已有游戏" Command="{Binding BindFromRepoCommand}" Padding="10,3" Margin="0,0,8,0"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+            <Button Content="刷新" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="0,0,8,0"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+            <Button Content="刷新状态" Command="{Binding RefreshStatusCommand}" Padding="10,3" Margin="0,0,12,0"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
             <CheckBox Content="显示已隐藏" IsChecked="{Binding ShowHidden}" VerticalAlignment="Center" Margin="0,0,12,0"/>
             <ProgressBar Width="80" Height="12" IsIndeterminate="True" VerticalAlignment="Center"
                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
             <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="8,0,0,0"
-                       Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                       Foreground="{DynamicResource ThemeMutedBrush}" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
         </StackPanel>
-        <TextBlock DockPanel.Dock="Bottom" Margin="10,0,10,6" Foreground="Gray" FontSize="11"
+        <TextBlock DockPanel.Dock="Bottom" Margin="10,0,10,6" Foreground="{DynamicResource ThemeMutedBrush}" FontSize="11"
                    Text="右键点击游戏行可 编辑 / 隐藏 / 删除；鼠标悬停可查看存档目录等完整配置。"/>
         <ListView ItemsSource="{Binding Games}" Margin="8,4,8,4">
             <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem">
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Style TargetType="ListViewItem" BasedOn="{StaticResource AppListViewItemStyle}">
                     <Setter Property="ToolTip" Value="{Binding DetailText}"/>
                     <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}"/>
                     <Setter Property="ContextMenu">
@@ -45,50 +49,72 @@
             </ListView.ItemContainerStyle>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="游戏名称" Width="300">
+                    <GridViewColumn Header="游戏名称" Width="320">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Name}" FontSize="13"
-                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource ThemeNameBrush}"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsHidden}" Value="True">
-                                                    <Setter Property="Foreground" Value="{DynamicResource ThemeStatusIdleBrush}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource ThemeNameBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource ThemeStatusIdleBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="已隐藏" FontSize="10" VerticalAlignment="Center" Margin="6,1,0,0"
+                                               Foreground="{DynamicResource ThemeStatusIdleBrush}"
+                                               Visibility="{Binding IsHidden, Converter={StaticResource BoolToVis}}"/>
+                                </StackPanel>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="状态" Width="90">
+                    <GridViewColumn Header="状态" Width="100">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource ThemeStatusIdleBrush}"/>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource PillBadgeBorderStyle}">
+                                            <Setter Property="Background" Value="{DynamicResource ThemeIdleBadgeBackgroundBrush}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                    <Setter Property="Foreground" Value="{DynamicResource ThemeStatusRunningBrush}"/>
+                                                    <Setter Property="Background" Value="{DynamicResource ThemeRunningBadgeBackgroundBrush}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding StatusText}" FontSize="11" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource ThemeIdleBadgeForegroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource ThemeStatusRunningBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="操作" Width="90">
+                    <GridViewColumn Header="操作" Width="110">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="{Binding LaunchActionText}" Padding="10,2" MinWidth="60"
+                                <Button Padding="10,2" MinWidth="80"
                                         IsEnabled="{Binding CanToggleLaunch}"
                                         Command="{Binding DataContext.ToggleLaunchCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                        CommandParameter="{Binding}"/>
+                                        CommandParameter="{Binding}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding LaunchIconText}" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding LaunchActionText}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>

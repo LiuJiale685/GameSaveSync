@@ -7,4 +7,17 @@
     <SolidColorBrush x:Key="ThemeNameBrush" Color="#F0F0F0"/>
     <SolidColorBrush x:Key="ThemeStatusRunningBrush" Color="#6BCB77"/>
     <SolidColorBrush x:Key="ThemeStatusIdleBrush" Color="#8A8A8A"/>
+
+    <!-- 语义色（与 LightTheme.xaml 保持相同 Key） -->
+    <SolidColorBrush x:Key="ThemeAccentBrush" Color="#4CC2FF"/>
+    <SolidColorBrush x:Key="ThemeAccentForegroundBrush" Color="#003A5D"/>
+    <SolidColorBrush x:Key="ThemeDangerBrush" Color="#D13438"/>
+    <SolidColorBrush x:Key="ThemeDangerForegroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ThemeWarningBrush" Color="#E8A33D"/>
+    <SolidColorBrush x:Key="ThemeCardBackgroundBrush" Color="#2A2A2A"/>
+    <SolidColorBrush x:Key="ThemeHashBadgeBackgroundBrush" Color="#3D3D3D"/>
+    <SolidColorBrush x:Key="ThemeHashBadgeForegroundBrush" Color="#D0D0D0"/>
+    <SolidColorBrush x:Key="ThemeRunningBadgeBackgroundBrush" Color="#1E3324"/>
+    <SolidColorBrush x:Key="ThemeIdleBadgeBackgroundBrush" Color="#333333"/>
+    <SolidColorBrush x:Key="ThemeIdleBadgeForegroundBrush" Color="#A0A0A0"/>
 </ResourceDictionary>

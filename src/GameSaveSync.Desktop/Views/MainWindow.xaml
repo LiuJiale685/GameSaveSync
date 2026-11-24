@@ -6,16 +6,51 @@
         Width="940" Height="640" MinWidth="760" MinHeight="520"
         WindowStartupLocation="CenterScreen">
     <TabControl>
-        <TabItem Header="游戏">
+        <TabControl.Resources>
+            <Style x:Key="TabIconTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Margin" Value="0,0,6,0"/>
+            </Style>
+            <Style x:Key="TabHeaderTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
+        </TabControl.Resources>
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE7FC;" Style="{StaticResource TabIconTextBlockStyle}"/>
+                    <TextBlock Text="游戏" Style="{StaticResource TabHeaderTextBlockStyle}"/>
+                </StackPanel>
+            </TabItem.Header>
             <views:GamesView DataContext="{Binding Games}"/>
         </TabItem>
-        <TabItem Header="版本历史">
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE823;" Style="{StaticResource TabIconTextBlockStyle}"/>
+                    <TextBlock Text="版本历史" Style="{StaticResource TabHeaderTextBlockStyle}"/>
+                </StackPanel>
+            </TabItem.Header>
             <views:VersionsView DataContext="{Binding Versions}"/>
         </TabItem>
-        <TabItem Header="同步状态">
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE895;" Style="{StaticResource TabIconTextBlockStyle}"/>
+                    <TextBlock Text="同步状态" Style="{StaticResource TabHeaderTextBlockStyle}"/>
+                </StackPanel>
+            </TabItem.Header>
             <views:SyncStatusView DataContext="{Binding Sync}"/>
         </TabItem>
-        <TabItem Header="设置">
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE713;" Style="{StaticResource TabIconTextBlockStyle}"/>
+                    <TextBlock Text="设置" Style="{StaticResource TabHeaderTextBlockStyle}"/>
+                </StackPanel>
+            </TabItem.Header>
             <views:SettingsView DataContext="{Binding Settings}"/>
         </TabItem>
     </TabControl>

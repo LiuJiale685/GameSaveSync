@@ -7,4 +7,17 @@
     <SolidColorBrush x:Key="ThemeNameBrush" Color="#000000"/>
     <SolidColorBrush x:Key="ThemeStatusRunningBrush" Color="#2E7D32"/>
     <SolidColorBrush x:Key="ThemeStatusIdleBrush" Color="#9E9E9E"/>
+
+    <!-- 语义色（与 DarkTheme.xaml 保持相同 Key） -->
+    <SolidColorBrush x:Key="ThemeAccentBrush" Color="#0F6CBD"/>
+    <SolidColorBrush x:Key="ThemeAccentForegroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ThemeDangerBrush" Color="#C42B1C"/>
+    <SolidColorBrush x:Key="ThemeDangerForegroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ThemeWarningBrush" Color="#B45309"/>
+    <SolidColorBrush x:Key="ThemeCardBackgroundBrush" Color="#F7F7F7"/>
+    <SolidColorBrush x:Key="ThemeHashBadgeBackgroundBrush" Color="#ECECEC"/>
+    <SolidColorBrush x:Key="ThemeHashBadgeForegroundBrush" Color="#424242"/>
+    <SolidColorBrush x:Key="ThemeRunningBadgeBackgroundBrush" Color="#D9F0DC"/>
+    <SolidColorBrush x:Key="ThemeIdleBadgeBackgroundBrush" Color="#EDEDED"/>
+    <SolidColorBrush x:Key="ThemeIdleBadgeForegroundBrush" Color="#616161"/>
 </ResourceDictionary>

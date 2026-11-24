@@ -1,89 +1,184 @@
 ﻿<UserControl x:Class="GameSaveSync.Desktop.Views.SyncStatusView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:GameSaveSync.Core.Models;assembly=GameSaveSync.Core">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- 报告大状态：按语义色着色 -->
+        <Style x:Key="ReportStatusTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeMutedBrush}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ReportStatus}" Value="{x:Static models:SyncStatus.LocalSnapshotReady}">
+                    <Setter Property="Foreground" Value="{DynamicResource ThemeStatusRunningBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReportStatus}" Value="{x:Static models:SyncStatus.WaitingForCloudSync}">
+                    <Setter Property="Foreground" Value="{DynamicResource ThemeStatusRunningBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReportStatus}" Value="{x:Static models:SyncStatus.RemoteVersionDiscovered}">
+                    <Setter Property="Foreground" Value="{DynamicResource ThemeAccentBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReportStatus}" Value="{x:Static models:SyncStatus.RemoteVersionVerified}">
+                    <Setter Property="Foreground" Value="{DynamicResource ThemeAccentBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReportStatus}" Value="{x:Static models:SyncStatus.ConflictDetected}">
+                    <Setter Property="Foreground" Value="{DynamicResource ThemeDangerBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReportStatus}" Value="{x:Static models:SyncStatus.Failed}">
+                    <Setter Property="Foreground" Value="{DynamicResource ThemeDangerBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReportStatus}" Value="{x:Static models:SyncStatus.WaitingForFiles}">
+                    <Setter Property="Foreground" Value="{DynamicResource ThemeWarningBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReportStatus}" Value="{x:Static models:SyncStatus.RestorePending}">
+                    <Setter Property="Foreground" Value="{DynamicResource ThemeWarningBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     <DockPanel>
         <!-- 顶部：游戏选择 + 扫描 + 状态 -->
-        <StackPanel DockPanel.Dock="Top" Margin="8,8,8,4">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="游戏：" VerticalAlignment="Center"/>
-                <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding SelectedGame}"
-                          DisplayMemberPath="DisplayName" Width="220" Margin="4,0,0,0"/>
-                <Button Content="扫描同步状态" Command="{Binding ScanCommand}" Padding="10,3" Margin="10,0,0,0"/>
-                <Button Content="刷新游戏" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="10,0,0,0"/>
-                <ProgressBar Width="80" Height="12" IsIndeterminate="True" VerticalAlignment="Center" Margin="10,0,0,0"
-                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
-                <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="8,0,0,0"
-                           Foreground="{DynamicResource ThemeMutedBrush}" TextTrimming="CharacterEllipsis" MaxWidth="340"/>
-            </StackPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="10,10,10,4">
+            <TextBlock Text="游戏：" VerticalAlignment="Center"/>
+            <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding SelectedGame}"
+                      DisplayMemberPath="DisplayName" Width="220" Margin="4,0,0,0"/>
+            <Button Content="扫描同步状态" Command="{Binding ScanCommand}" Padding="10,3" Margin="10,0,0,0"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+            <Button Content="刷新游戏" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="10,0,0,0"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+            <ProgressBar Width="80" Height="12" IsIndeterminate="True" VerticalAlignment="Center" Margin="10,0,0,0"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="8,0,0,0"
+                       Foreground="{DynamicResource ThemeMutedBrush}" TextTrimming="CharacterEllipsis" MaxWidth="340"/>
+        </StackPanel>
 
-            <!-- 同步报告 -->
-            <Border BorderBrush="{DynamicResource ThemeBorderBrush}" BorderThickness="1" CornerRadius="4" Margin="0,8,0,0" Padding="8">
+        <!-- 报告卡片：同步状态 + 版本信息 -->
+        <Grid DockPanel.Dock="Top" Margin="10,4,10,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 卡片 A：同步状态（状态 → 动作闭环） -->
+            <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}">
                 <StackPanel>
+                    <TextBlock Text="同步状态" Style="{StaticResource SectionTitleTextBlockStyle}"/>
+                    <TextBlock Text="{Binding StatusDisplay}" Style="{StaticResource ReportStatusTextBlockStyle}"/>
+                    <TextBlock Text="{Binding ReportMessage}" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Foreground="{DynamicResource ThemeSecondaryBrush}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                Visibility="{Binding HasCandidate, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="建议应用：" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ThemeSecondaryBrush}"/>
+                        <TextBlock Text="{Binding CandidateDisplay}" VerticalAlignment="Center" Margin="4,0,0,0"
+                                   TextTrimming="CharacterEllipsis" MaxWidth="220" ToolTip="{Binding CandidateDisplay}"/>
+                        <Button Content="应用远端版本" Command="{Binding ApplyRemoteCommand}" Padding="10,3" Margin="12,0,0,0"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 卡片 B：版本信息 -->
+            <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
+                <StackPanel>
+                    <TextBlock Text="版本信息" Style="{StaticResource SectionTitleTextBlockStyle}"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="90"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition/>
                             <RowDefinition/>
                             <RowDefinition/>
+                            <RowDefinition/>
                         </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="状态：" FontWeight="Bold"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding StatusDisplay}" TextWrapping="Wrap"/>
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="本地状态：" FontWeight="Bold"/>
-                        <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding LocalStateDisplay}" TextWrapping="Wrap"/>
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Head 版本：" FontWeight="Bold"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding HeadsDisplay}" TextWrapping="Wrap"/>
-                        <TextBlock Grid.Row="1" Grid.Column="2" Text="上次应用：" FontWeight="Bold"/>
-                        <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding LastAppliedDisplay}" TextWrapping="Wrap"/>
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="等待同步：" FontWeight="Bold"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding WaitingDisplay}" Grid.ColumnSpan="3" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Head 版本：" Foreground="{DynamicResource ThemeMutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeadsDisplay}" Style="{StaticResource MonoTextBlockStyle}" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="上次应用：" Foreground="{DynamicResource ThemeMutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LastAppliedDisplay}" Style="{StaticResource MonoTextBlockStyle}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="本地状态：" Foreground="{DynamicResource ThemeMutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LocalStateDisplay}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="等待同步：" Foreground="{DynamicResource ThemeMutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding WaitingDisplay}" Style="{StaticResource MonoTextBlockStyle}" TextWrapping="Wrap"/>
                     </Grid>
-                    <TextBlock Text="{Binding ReportMessage}" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource ThemeSecondaryBrush}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <TextBlock Text="建议应用的远端版本：" FontWeight="Bold" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding CandidateDisplay}" VerticalAlignment="Center" Margin="6,0,0,0" TextWrapping="Wrap"/>
-                        <Button Content="应用远端版本" Command="{Binding ApplyRemoteCommand}" Padding="10,3" Margin="12,0,0,0"
-                                Visibility="{Binding HasCandidate, Converter={StaticResource BoolToVis}}"/>
-                    </StackPanel>
                 </StackPanel>
             </Border>
-        </StackPanel>
+        </Grid>
 
-        <!-- 冲突列表 -->
-        <GroupBox Header="冲突列表" Margin="8,8,8,8">
+        <!-- 冲突卡片：余下空间 -->
+        <Border Style="{StaticResource CardBorderStyle}" Margin="10,0,10,10">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,4,0,4">
-                    <Button Content="刷新冲突列表" Command="{Binding RefreshConflictsCommand}" Padding="10,3"/>
-                    <TextBlock Text="{Binding ConflictSummary}" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{DynamicResource ThemeMutedBrush}"/>
-                </StackPanel>
-                <ListView ItemsSource="{Binding Conflicts}">
+                <Grid DockPanel.Dock="Top">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="冲突" Style="{StaticResource SectionTitleTextBlockStyle}"/>
+                    <TextBlock Grid.Column="1" Text="{Binding ConflictSummary}" VerticalAlignment="Center" Margin="8,0,0,6"
+                               Foreground="{DynamicResource ThemeMutedBrush}"/>
+                    <Button Grid.Column="2" Content="刷新冲突列表" Command="{Binding RefreshConflictsCommand}" Padding="10,3"
+                            Margin="0,0,0,4"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+                </Grid>
+
+                <Grid>
+                    <!-- 空状态：没有冲突时的友好提示 -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding HasConflicts, Converter={StaticResource InverseBoolToVis}}">
+                        <TextBlock Text="&#xE73E;" FontSize="36" HorizontalAlignment="Center" Margin="0,12,0,8"
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                   Foreground="{DynamicResource ThemeStatusRunningBrush}"/>
+                        <TextBlock Text="太棒了！当前没有任何存档冲突" HorizontalAlignment="Center" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource ThemeMutedBrush}"/>
+                    </StackPanel>
+
+                    <ListView ItemsSource="{Binding Conflicts}"
+                              Visibility="{Binding HasConflicts, Converter={StaticResource BoolToVis}}"
+                              ItemContainerStyle="{StaticResource AppListViewItemStyle}"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListView.View>
                         <GridView>
-                            <GridViewColumn Header="游戏（GameId 前 8 位）" DisplayMemberBinding="{Binding GameDisplay}" Width="130"/>
-                            <GridViewColumn Header="发现时间" DisplayMemberBinding="{Binding CreatedDisplay}" Width="150"/>
-                            <GridViewColumn Header="本机版本" DisplayMemberBinding="{Binding LocalCommitDisplay}" Width="90"/>
-                            <GridViewColumn Header="云端版本" DisplayMemberBinding="{Binding RemoteCommitsDisplay}" Width="180"/>
-                            <GridViewColumn Header="处理选项" Width="420">
+                            <GridViewColumn Header="游戏（GameId 前 8 位）" DisplayMemberBinding="{Binding GameDisplay}" Width="100"/>
+                            <GridViewColumn Header="发现时间" DisplayMemberBinding="{Binding CreatedDisplay}" Width="130"/>
+                            <GridViewColumn Header="本机版本" Width="80">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding LocalCommitDisplay}" Style="{StaticResource MonoTextBlockStyle}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="云端版本" Width="175">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding RemoteCommitsDisplay}" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding RemoteCommitsDisplay}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="处理选项" Width="245">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
-                                            <Button Content="保留本机" Padding="8,2" Margin="0,0,6,0"
+                                            <Button Content="保留本机" Padding="8,3" Margin="0,0,6,0"
+                                                    IsEnabled="{Binding DataContext.IsBusy, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}, Converter={StaticResource InverseBool}}"
                                                     Command="{Binding DataContext.KeepLocalCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                                                     CommandParameter="{Binding}"/>
-                                            <Button Content="使用云端" Padding="8,2" Margin="0,0,6,0"
+                                            <Button Content="使用云端" Padding="8,3" Margin="0,0,6,0"
+                                                    IsEnabled="{Binding DataContext.IsBusy, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}, Converter={StaticResource InverseBool}}"
                                                     Command="{Binding DataContext.UseRemoteCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                                                     CommandParameter="{Binding}"/>
-                                            <Button Content="分别保留到临时目录" Padding="8,2"
+                                            <Button Content="导出检查" Padding="8,3"
+                                                    ToolTip="将本机与云端版本分别导出到临时目录供检查"
+                                                    IsEnabled="{Binding DataContext.IsBusy, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}, Converter={StaticResource InverseBool}}"
                                                     Command="{Binding DataContext.KeepBothCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                                                     CommandParameter="{Binding}"/>
                                         </StackPanel>
@@ -92,8 +187,9 @@
                             </GridViewColumn>
                         </GridView>
                     </ListView.View>
-                </ListView>
+                    </ListView>
+                </Grid>
             </DockPanel>
-        </GroupBox>
+        </Border>
     </DockPanel>
 </UserControl>

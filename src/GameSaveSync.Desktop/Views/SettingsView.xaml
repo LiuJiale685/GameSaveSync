@@ -10,27 +10,37 @@
                 <ProgressBar Width="80" Height="12" IsIndeterminate="True" VerticalAlignment="Center"
                              Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="8,0,0,0"
-                           Foreground="Gray" TextWrapping="Wrap"/>
+                           Foreground="{DynamicResource ThemeMutedBrush}" TextWrapping="Wrap"/>
             </StackPanel>
 
             <!-- 仓库目录绑定 -->
-            <GroupBox Header="仓库目录（网盘同步目录下的 GameSaveVault）" Margin="0,10,0,0">
-                <StackPanel Margin="8">
-                    <TextBlock Text="{Binding BoundRepoPath, StringFormat=当前绑定：{0}}" TextWrapping="Wrap"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="仓库目录（网盘同步目录下的 GameSaveVault）" Style="{StaticResource SectionTitleTextBlockStyle}"/>
+                    <TextBlock Text="{Binding BoundRepoPath, StringFormat=当前绑定：{0}}" TextWrapping="Wrap"
+                               Style="{StaticResource MonoTextBlockStyle}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                         <TextBox Text="{Binding RepoPathInput, UpdateSourceTrigger=PropertyChanged}" Width="400" VerticalAlignment="Center"/>
-                        <Button Content="浏览…" Command="{Binding BrowseRepoCommand}" Margin="6,0,0,0" Padding="10,3"/>
-                        <Button Content="绑定仓库" Command="{Binding BindRepoCommand}" Margin="6,0,0,0" Padding="10,3"/>
-                        <Button Content="迁移仓库到新目录…" Command="{Binding MigrateRepoCommand}" Margin="6,0,0,0" Padding="10,3"/>
+                        <Button Content="浏览…" Command="{Binding BrowseRepoCommand}" Margin="8,0,0,0" Padding="10,3"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
                     </StackPanel>
-                    <TextBlock Margin="0,6,0,0" Foreground="Gray" TextWrapping="Wrap"
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="绑定仓库" Command="{Binding BindRepoCommand}" Padding="10,3"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+                        <Button Content="迁移仓库到新目录…" Command="{Binding MigrateRepoCommand}" Padding="10,3" Margin="10,0,0,0"
+                                Style="{StaticResource DangerButtonStyle}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+                    </StackPanel>
+                    <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource ThemeMutedBrush}" TextWrapping="Wrap"
                                Text="更换网盘同步目录时请用“迁移仓库到新目录…”：会把全部历史版本复制并校验到新目录后自动切换绑定。直接“绑定”到另一个目录会连接到空仓库，导致历史版本丢失。"/>
                 </StackPanel>
-            </GroupBox>
+            </Border>
 
             <!-- 设备信息 -->
-            <GroupBox Header="设备信息" Margin="0,10,0,0">
-                <StackPanel Margin="8">
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="设备信息" Style="{StaticResource SectionTitleTextBlockStyle}"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120"/>
@@ -41,43 +51,55 @@
                             <RowDefinition/>
                             <RowDefinition/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="设备 ID（前 8 位）：" FontWeight="Bold"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceIdShort}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="设备名：" FontWeight="Bold"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="设备 ID（前 8 位）：" Foreground="{DynamicResource ThemeMutedBrush}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceIdShort}" Style="{StaticResource MonoTextBlockStyle}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="设备名：" Foreground="{DynamicResource ThemeMutedBrush}"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DeviceName}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="创建时间：" FontWeight="Bold"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="创建时间：" Foreground="{DynamicResource ThemeMutedBrush}"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DeviceCreatedAt}"/>
                     </Grid>
                     <Button Content="重新生成设备 ID" Command="{Binding RegenerateDeviceIdCommand}"
-                            Margin="0,8,0,0" Padding="10,3" HorizontalAlignment="Left"/>
+                            Margin="0,10,0,0" Padding="10,3" HorizontalAlignment="Left"
+                            Style="{StaticResource DangerButtonStyle}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
                 </StackPanel>
-            </GroupBox>
+            </Border>
 
             <!-- 仓库统计 -->
-            <GroupBox Header="仓库统计" Margin="0,10,0,0">
-                <StackPanel Margin="8" Orientation="Horizontal">
-                    <TextBlock Text="{Binding ObjectCountDisplay, StringFormat=对象数：{0}}" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding TotalSizeDisplay, StringFormat=总体积：{0}}" VerticalAlignment="Center" Margin="24,0,0,0"/>
-                    <Button Content="刷新统计" Command="{Binding RefreshStatsCommand}" Margin="24,0,0,0" Padding="10,3"/>
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="仓库统计" Style="{StaticResource SectionTitleTextBlockStyle}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding ObjectCountDisplay, StringFormat=对象数：{0}}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding TotalSizeDisplay, StringFormat=总体积：{0}}" VerticalAlignment="Center" Margin="24,0,0,0" FontWeight="SemiBold"/>
+                        <Button Content="刷新统计" Command="{Binding RefreshStatsCommand}" Margin="24,0,0,0" Padding="10,3"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+                    </StackPanel>
                 </StackPanel>
-            </GroupBox>
+            </Border>
 
             <!-- 外观 -->
-            <GroupBox Header="外观" Margin="0,10,0,0">
-                <StackPanel Orientation="Horizontal" Margin="8">
-                    <TextBlock Text="主题：" VerticalAlignment="Center"/>
-                    <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}"
-                              DisplayMemberPath="DisplayName" Width="160" Margin="6,0,0,0"/>
-                    <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource ThemeMutedBrush}"
-                               Text="“跟随系统”会随 Windows 深色模式自动切换。"/>
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="外观" Style="{StaticResource SectionTitleTextBlockStyle}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="主题：" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}"
+                                  DisplayMemberPath="DisplayName" Width="160" Margin="6,0,0,0"/>
+                        <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource ThemeMutedBrush}"
+                                   Text="“跟随系统”会随 Windows 深色模式自动切换。"/>
+                    </StackPanel>
                 </StackPanel>
-            </GroupBox>
+            </Border>
 
             <!-- 开机自启动 -->
-            <GroupBox Header="启动" Margin="0,10,0,0">
-                <CheckBox Content="开机自动启动（写入注册表 HKCU\Software\Microsoft\Windows\CurrentVersion\Run）"
-                          IsChecked="{Binding AutoStartEnabled}" Margin="8"/>
-            </GroupBox>
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="启动" Style="{StaticResource SectionTitleTextBlockStyle}"/>
+                    <CheckBox Content="开机自动启动（写入注册表 HKCU\Software\Microsoft\Windows\CurrentVersion\Run）"
+                              IsChecked="{Binding AutoStartEnabled}"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -29,6 +29,7 @@ public sealed partial class SyncStatusViewModel : ViewModelBase
 
     // ---- 同步报告展示 ----
     [ObservableProperty] private string _statusDisplay = "—";
+    [ObservableProperty] private SyncStatus? _reportStatus;
     [ObservableProperty] private string _reportMessage = string.Empty;
     [ObservableProperty] private string _headsDisplay = "—";
     [ObservableProperty] private string _waitingDisplay = "—";
@@ -44,6 +45,10 @@ public sealed partial class SyncStatusViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _conflictSummary = "当前没有未处理的冲突。";
+
+    /// <summary>是否存在未处理冲突（驱动空状态切换）。</summary>
+    [ObservableProperty]
+    private bool _hasConflicts;
 
     public SyncStatusViewModel(GameSaveSyncAppService appService, IDialogService dialog)
         : base(dialog)
@@ -131,6 +136,7 @@ public sealed partial class SyncStatusViewModel : ViewModelBase
         Conflicts.Clear();
         foreach (var conflict in conflicts)
             Conflicts.Add(new ConflictRowViewModel(conflict));
+        HasConflicts = conflicts.Count > 0;
         ConflictSummary = conflicts.Count == 0
             ? "当前没有未处理的冲突。"
             : $"{conflicts.Count} 个未处理冲突";
@@ -223,6 +229,7 @@ public sealed partial class SyncStatusViewModel : ViewModelBase
     private void ResetReport()
     {
         StatusDisplay = "—";
+        ReportStatus = null;
         ReportMessage = string.Empty;
         HeadsDisplay = "—";
         WaitingDisplay = "—";
@@ -241,6 +248,7 @@ public sealed partial class SyncStatusViewModel : ViewModelBase
             return;
         }
         StatusDisplay = Describe(report.Status);
+        ReportStatus = report.Status;
         ReportMessage = report.Message;
         HeadsDisplay = report.Heads.Count == 0
             ? "无"

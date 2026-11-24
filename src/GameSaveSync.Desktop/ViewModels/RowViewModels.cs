@@ -29,6 +29,7 @@ public sealed partial class GameRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanStop))]
     [NotifyPropertyChangedFor(nameof(CanDelete))]
     [NotifyPropertyChangedFor(nameof(LaunchActionText))]
+    [NotifyPropertyChangedFor(nameof(LaunchIconText))]
     [NotifyPropertyChangedFor(nameof(CanToggleLaunch))]
     private bool _isRunning;
 
@@ -47,6 +48,9 @@ public sealed partial class GameRowViewModel : ObservableObject
 
     /// <summary>启动 / 停止按钮文案：未运行时为“启动”，运行中变为“停止”。</summary>
     public string LaunchActionText => IsRunning ? "停止" : "启动";
+
+    /// <summary>启动 / 停止按钮图标字符：未运行为 ▶，运行中为 ■。</summary>
+    public string LaunchIconText => IsRunning ? "■" : "▶";
 
     /// <summary>启动/停止按钮可用性：未运行时需配置 exe，运行中需配置进程名。</summary>
     public bool CanToggleLaunch => IsRunning ? CanStop : CanLaunch;

@@ -5,35 +5,63 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
     <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Margin="8,8,8,4">
+        <StackPanel DockPanel.Dock="Top" Margin="10,10,10,6">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="游戏：" VerticalAlignment="Center"/>
                 <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding SelectedGame}"
                           DisplayMemberPath="DisplayName" Width="220" Margin="4,0,0,0"/>
-                <Button Content="刷新游戏" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="10,0,0,0"/>
-                <Button Content="刷新版本" Command="{Binding LoadVersionsCommand}" Padding="10,3" Margin="10,0,12,0"/>
+                <Button Content="刷新游戏" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="10,0,0,0"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+                <Button Content="刷新版本" Command="{Binding LoadVersionsCommand}" Padding="10,3" Margin="10,0,12,0"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
                 <ProgressBar Width="80" Height="12" IsIndeterminate="True" VerticalAlignment="Center"
                              Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="8,0,0,0"
                            Foreground="{DynamicResource ThemeMutedBrush}" TextTrimming="CharacterEllipsis" MaxWidth="340"/>
             </StackPanel>
         </StackPanel>
-        <ListView ItemsSource="{Binding Versions}" Margin="8,4,8,8">
+        <ListView ItemsSource="{Binding Versions}" Margin="8,4,8,8"
+                  ItemContainerStyle="{StaticResource AppListViewItemStyle}">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="时间（本地）" DisplayMemberBinding="{Binding TimeDisplay}" Width="150"/>
-                    <GridViewColumn Header="设备" DisplayMemberBinding="{Binding DeviceDisplay}" Width="90"/>
-                    <GridViewColumn Header="说明" DisplayMemberBinding="{Binding Message}" Width="200"/>
-                    <GridViewColumn Header="版本" DisplayMemberBinding="{Binding ShortId}" Width="90"/>
-                    <GridViewColumn Header="父版本数" DisplayMemberBinding="{Binding ParentCountText}" Width="70"/>
-                    <GridViewColumn Header="操作" Width="200">
+                    <GridViewColumn Header="时间（本地）" DisplayMemberBinding="{Binding TimeDisplay}" Width="140"/>
+                    <GridViewColumn Header="设备" Width="80">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DeviceDisplay}" Style="{StaticResource MonoTextBlockStyle}"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="说明" Width="200">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Message}" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Message}"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="版本" Width="90">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource HashBadgeBorderStyle}">
+                                    <TextBlock Text="{Binding ShortId}" Style="{StaticResource MonoTextBlockStyle}"
+                                               Foreground="{DynamicResource ThemeHashBadgeForegroundBrush}"/>
+                                </Border>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="父版本数" DisplayMemberBinding="{Binding ParentCountText}" Width="60"/>
+                    <GridViewColumn Header="操作" Width="170">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="查看文件清单" Padding="8,2" Margin="0,0,6,0"
+                                    <Button Content="查看文件清单" Padding="6,3" Margin="0,0,6,0"
+                                            IsEnabled="{Binding DataContext.IsBusy, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}, Converter={StaticResource InverseBool}}"
                                             Command="{Binding DataContext.ViewManifestCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                                             CommandParameter="{Binding}"/>
-                                    <Button Content="恢复此版本" Padding="8,2"
+                                    <Button Content="恢复此版本" Padding="6,3"
+                                            IsEnabled="{Binding DataContext.IsBusy, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}, Converter={StaticResource InverseBool}}"
                                             Command="{Binding DataContext.RestoreCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                                             CommandParameter="{Binding}"/>
                                 </StackPanel>
