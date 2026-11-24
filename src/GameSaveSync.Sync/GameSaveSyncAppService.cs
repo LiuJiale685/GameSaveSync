@@ -137,17 +137,19 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         EnsureRepoBound();
         var gameId = Guid.NewGuid().ToString("D");
         await _repoFiles!.EnsureGameAsync(gameId, name, null, ct).ConfigureAwait(false);
+        var normalizedProcessNames = ProcessNameNormalizer.NormalizeAll(processNames ?? Array.Empty<string>());
 
         var config = new LocalGameConfig
         {
             GameId = gameId,
             Name = name,
             SavePath = savePath,
-            ProcessNames = processNames?.ToList() ?? new List<string>(),
+            ProcessNames = normalizedProcessNames,
             ExecutablePath = executablePath ?? string.Empty,
         };
         await _gameRepo.AddOrUpdateGameAsync(config, ct).ConfigureAwait(false);
         await _gameRepo.SetSavePathAsync(gameId, Device.DeviceId, savePath, ct).ConfigureAwait(false);
+        await PublishSharedProcessNamesAsync(gameId, normalizedProcessNames, ct).ConfigureAwait(false);
         return config;
     }
 
@@ -169,12 +171,18 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         var shared = await _repoFiles!.ReadGameAsync(sharedGameId, ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"仓库中不存在游戏 {sharedGameId}。");
 
+        // 进程名优先取用户输入；未填写时沿用仓库中的共享设置（跨设备同步）。
+        var normalizedProcessNames = ProcessNameNormalizer.NormalizeAll(
+            processNames is { Count: > 0 }
+                ? processNames
+                : await GetSharedProcessNamesAsync(sharedGameId, ct).ConfigureAwait(false));
+
         var config = new LocalGameConfig
         {
             GameId = sharedGameId,
             Name = localName.Length > 0 ? localName : shared.Name,
             SavePath = savePath,
-            ProcessNames = processNames?.ToList() ?? new List<string>(),
+            ProcessNames = normalizedProcessNames,
             ExecutablePath = executablePath ?? string.Empty,
         };
         await _gameRepo.AddOrUpdateGameAsync(config, ct).ConfigureAwait(false);
@@ -185,9 +193,72 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
     public Task<IReadOnlyList<LocalGameConfig>> ListGamesAsync(CancellationToken ct = default)
         => _gameRepo.ListGamesAsync(ct);
 
-    /// <summary>更新本机游戏配置（名称、进程名、可执行文件、自动化策略）。</summary>
-    public Task UpdateGameAsync(LocalGameConfig config, CancellationToken ct = default)
-        => _gameRepo.AddOrUpdateGameAsync(config, ct);
+    /// <summary>列出本机游戏（含本设备存档路径，并合并仓库共享进程名，用于游戏列表显示与编辑）。</summary>
+    public async Task<IReadOnlyList<LocalGameConfig>> ListGamesWithSavePathAsync(CancellationToken ct = default)
+    {
+        var games = await _gameRepo.ListGamesWithSavePathAsync(Device.DeviceId, ct).ConfigureAwait(false);
+        if (_repoFiles is null)
+            return games;
+
+        // 进程名以仓库共享设置为准（跨设备同步）；无共享设置时回退本机配置并补全 .exe。
+        foreach (var game in games)
+        {
+            var shared = await _repoFiles.ReadGameSettingsAsync(game.GameId, ct).ConfigureAwait(false);
+            var sharedNames = shared is null
+                ? new List<string>()
+                : ProcessNameNormalizer.NormalizeAll(shared.ProcessNames);
+
+            var effective = sharedNames.Count > 0
+                ? sharedNames
+                : ProcessNameNormalizer.NormalizeAll(game.ProcessNames);
+            if (effective.Count == 0 || effective.SequenceEqual(game.ProcessNames))
+                continue;
+
+            game.ProcessNames = effective;
+            await _gameRepo.AddOrUpdateGameAsync(game, ct).ConfigureAwait(false);
+        }
+        return games;
+    }
+
+    /// <summary>更新本机游戏配置（名称、存档路径、进程名、可执行文件、自动化策略），并发布共享进程名。</summary>
+    public async Task UpdateGameAsync(LocalGameConfig config, CancellationToken ct = default)
+    {
+        var normalized = ProcessNameNormalizer.NormalizeAll(config.ProcessNames);
+        config.ProcessNames = normalized;
+
+        await _gameRepo.AddOrUpdateGameAsync(config, ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(config.SavePath))
+            await _gameRepo.SetSavePathAsync(config.GameId, Device.DeviceId, config.SavePath, ct)
+                .ConfigureAwait(false);
+        await PublishSharedProcessNamesAsync(config.GameId, normalized, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>读取仓库中的共享进程名（不存在或未配置返回空列表）。</summary>
+    public async Task<IReadOnlyList<string>> GetSharedProcessNamesAsync(
+        string gameId, CancellationToken ct = default)
+    {
+        if (_repoFiles is null)
+            return Array.Empty<string>();
+        var settings = await _repoFiles.ReadGameSettingsAsync(gameId, ct).ConfigureAwait(false);
+        return settings is null
+            ? Array.Empty<string>()
+            : ProcessNameNormalizer.NormalizeAll(settings.ProcessNames);
+    }
+
+    /// <summary>把进程名发布到仓库共享设置（跨设备同步，后写者胜）。</summary>
+    private async Task PublishSharedProcessNamesAsync(
+        string gameId, IReadOnlyList<string> processNames, CancellationToken ct)
+    {
+        if (_repoFiles is null)
+            return;
+        await _repoFiles.WriteGameSettingsAsync(new SharedGameSettings
+        {
+            GameId = gameId,
+            ProcessNames = processNames.ToList(),
+            UpdatedAtUtc = UtcClock.Now(),
+            UpdatedByDeviceId = Device.DeviceId,
+        }, ct).ConfigureAwait(false);
+    }
 
     public Task RemoveGameAsync(string gameId, CancellationToken ct = default)
         => _gameRepo.RemoveGameAsync(gameId, ct);
@@ -294,11 +365,13 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         if (!result.Success)
             return result;
 
-        // 步骤 9：创建恢复 Commit，父版本指向备份 Commit
+        // 步骤 9：创建恢复 Commit，父版本同时指向备份 Commit 与被恢复的目标版本，
+        // 使恢复后的提交成为目标版本的直接后代（收敛版本关系），
+        // 避免目标版本成为并行 Head 而在下次扫描时误报冲突。
         var target = await FindCommitAsync(gameId, targetCommitId, ct).ConfigureAwait(false);
         var restoreCommit = await _commitManager.CreateCommitReferencingExistingManifestAsync(
             gameId, Device.DeviceId, target.ManifestHash,
-            new[] { backupCommit.CommitId },
+            new[] { backupCommit.CommitId, target.CommitId }.Distinct().ToList(),
             "恢复历史版本", ct).ConfigureAwait(false);
 
         await _applied.SetAsync(gameId, restoreCommit.CommitId, restoreCommit.ManifestHash, ct)

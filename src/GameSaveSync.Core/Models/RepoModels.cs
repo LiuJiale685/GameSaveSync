@@ -61,6 +61,29 @@ public sealed class SharedGameInfo
 }
 
 /// <summary>
+/// games/&lt;game-id&gt;/settings.json — 可跨设备同步的共享游戏设置（进程名等）。
+/// 与不可变的 game.json 分开存放，允许覆盖更新（后写者胜）。
+/// </summary>
+public sealed class SharedGameSettings
+{
+    [JsonPropertyOrder(0)]
+    public int SchemaVersion { get; set; } = RepoProtocol.SchemaVersion;
+
+    [JsonPropertyOrder(1)]
+    public string GameId { get; set; } = string.Empty;
+
+    /// <summary>进程名列表，统一严格带 .exe 后缀（如 game.exe），跨设备共享。</summary>
+    [JsonPropertyOrder(2)]
+    public List<string> ProcessNames { get; set; } = new();
+
+    [JsonPropertyOrder(3)]
+    public string UpdatedAtUtc { get; set; } = string.Empty;
+
+    [JsonPropertyOrder(4)]
+    public string UpdatedByDeviceId { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Manifest 内的单个文件条目。
 /// </summary>
 public sealed class ManifestFileEntry

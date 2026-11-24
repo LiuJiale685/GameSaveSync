@@ -40,9 +40,12 @@
                 VerticalAlignment="Center" Click="Browse_Click"/>
 
         <TextBlock Grid.Row="4" Grid.Column="0" Text="进程名：" VerticalAlignment="Center" Margin="0,10,8,0"
-                   ToolTip="可选。用于判断游戏是否运行（游戏退出后自动备份）。多个进程名用逗号分隔。"/>
-        <TextBox x:Name="ProcessBox" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,10,0,0"
-                 ToolTip="可选。多个进程名用逗号或分号分隔，例如：game, game2"/>
+                   ToolTip="可选。用于判断游戏是否运行（游戏退出后自动备份）。进程名会同步到共享仓库，供其他设备使用。"/>
+        <TextBox x:Name="ProcessBox" Grid.Row="4" Grid.Column="1" Margin="0,10,0,0"
+                 ToolTip="可选。多个进程名用逗号或分号分隔，例如：game.exe, launcher.exe（自动补全 .exe 后缀）"/>
+        <Button Grid.Row="4" Grid.Column="2" Content="自动识别" Margin="6,10,0,0" Padding="8,2"
+                VerticalAlignment="Center" Click="DetectProcess_Click"
+                ToolTip="先启动游戏，再点此按钮，从正在运行的进程中自动识别（推荐配置好游戏程序后使用）"/>
 
         <TextBlock Grid.Row="5" Grid.Column="0" Text="游戏程序：" VerticalAlignment="Center" Margin="0,10,8,0"
                    ToolTip="可选。选择游戏可执行文件（.exe），之后可在游戏列表一键启动游戏。"/>
@@ -53,7 +56,7 @@
 
         <TextBlock Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0" Foreground="Gray"
                    TextWrapping="Wrap"
-                   Text="进程名可选（用于游戏退出自动备份）；需带上 .exe 后缀与否均可，比较不区分大小写。配置游戏程序后可在列表中启动/停止游戏。"/>
+                   Text="进程名统一保存为 name.exe 格式（可只填 name，会自动补全），并随仓库同步到其他设备；配置游戏程序后可在列表中启动/停止游戏。"/>
 
         <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="3"
                     Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

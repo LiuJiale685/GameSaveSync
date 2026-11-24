@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using GameSaveSync.Core.Models;
+using GameSaveSync.Core.Services;
 using GameSaveSync.Desktop.Services;
 
 namespace GameSaveSync.Desktop.Views.Dialogs;
 
-/// <summary>“添加游戏 / 从仓库绑定已有游戏”对话框。</summary>
+/// <summary>“添加游戏 / 从仓库绑定已有游戏 / 编辑游戏”对话框。</summary>
 public partial class AddGameWindow : Window
 {
     private readonly bool _bindFromRepo;
@@ -36,6 +36,22 @@ public partial class AddGameWindow : Window
         }
     }
 
+    /// <summary>编辑模式：以已有配置预填各字段，gameId 保持不变。</summary>
+    public AddGameWindow(LocalGameConfig game)
+    {
+        InitializeComponent();
+        _bindFromRepo = false;
+
+        Title = "编辑游戏";
+        ModeText.Text = "修改本机游戏配置。gameId 保持不变，存档目录与游戏程序只影响本机。";
+        SharedPanel.Visibility = Visibility.Collapsed;
+
+        NameBox.Text = game.Name;
+        PathBox.Text = game.SavePath;
+        ProcessBox.Text = string.Join(", ", game.ProcessNames);
+        ExeBox.Text = game.ExecutablePath;
+    }
+
     private void SharedCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (SharedCombo.SelectedItem is SharedGameInfo shared)
@@ -47,6 +63,29 @@ public partial class AddGameWindow : Window
         var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "选择游戏存档目录" };
         if (dialog.ShowDialog(this) == true)
             PathBox.Text = dialog.FolderName;
+    }
+
+    private void DetectProcess_Click(object sender, RoutedEventArgs e)
+    {
+        var exePath = ExeBox.Text.Trim();
+        if (exePath.Length == 0)
+        {
+            MessageBox.Show(this, "请先填写或选择“游戏程序”，再自动识别进程名。",
+                Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            ExeBox.Focus();
+            return;
+        }
+
+        var names = GameProcessMonitorService.DetectRunningProcessNames(exePath);
+        if (names.Count == 0)
+        {
+            MessageBox.Show(this,
+                "未检测到正在运行的进程。请先启动游戏，等进入游戏后再点“自动识别”。",
+                Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        ProcessBox.Text = string.Join(", ", names);
     }
 
     private void BrowseExe_Click(object sender, RoutedEventArgs e)
@@ -100,18 +139,15 @@ public partial class AddGameWindow : Window
             }
         }
 
-        var processNames = ProcessBox.Text
-            .Split(new[] { ',', ';', '，', '；' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(p => p.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var processNames = ProcessNameNormalizer.NormalizeAll(ProcessBox.Text
+            .Split(new[] { ',', ';', '，', '；' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
         // 未填进程名但选了 exe 时，用 exe 文件名作为默认进程名，便于状态检测与停止
         if (processNames.Count == 0 && exePath.Length > 0)
         {
-            var exeName = Path.GetFileNameWithoutExtension(exePath);
+            var exeName = Path.GetFileName(exePath);
             if (!string.IsNullOrWhiteSpace(exeName))
-                processNames.Add(exeName);
+                processNames.Add(ProcessNameNormalizer.Normalize(exeName));
         }
 
         Result = new AddGameResult(sharedGameId, name, savePath, processNames, exePath);

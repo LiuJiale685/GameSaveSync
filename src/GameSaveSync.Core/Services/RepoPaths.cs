@@ -22,6 +22,10 @@ public static partial class RepoPaths
     public static string GameInfoKey(string gameId)
         => $"games/{NormalizeGuid(gameId)}/game.json";
 
+    /// <summary>共享游戏设置（可覆盖更新，与不可变的 game.json 区分）。</summary>
+    public static string GameSettingsKey(string gameId)
+        => $"games/{NormalizeGuid(gameId)}/settings.json";
+
     public static string ManifestKey(string gameId, string manifestHash)
         => $"games/{NormalizeGuid(gameId)}/manifests/{manifestHash}.json";
 

@@ -130,6 +130,35 @@ public sealed class RepoFileService
         return result;
     }
 
+    /// <summary>读取共享游戏设置（进程名等）；不存在返回 null。</summary>
+    public async Task<SharedGameSettings?> ReadGameSettingsAsync(
+        string gameId, CancellationToken cancellationToken = default)
+    {
+        var key = RepoPaths.GameSettingsKey(gameId);
+        if (!await _store.ExistsAsync(key, cancellationToken).ConfigureAwait(false))
+            return null;
+
+        await using var stream = await _store.OpenReadAsync(key, cancellationToken).ConfigureAwait(false);
+        using var reader = new StreamReader(stream);
+        var json = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        // 设置文件允许跨版本共存：解析失败按"无设置"处理，不阻断同步。
+        var settings = RepoJson.Deserialize<SharedGameSettings>(json);
+        if (settings is null)
+            return null;
+        RepoProtocol.EnsureSupportedSchemaVersion(settings.SchemaVersion, key);
+        return settings;
+    }
+
+    /// <summary>写入共享游戏设置（覆盖更新，后写者胜）。</summary>
+    public async Task WriteGameSettingsAsync(
+        SharedGameSettings settings, CancellationToken cancellationToken = default)
+    {
+        var bytes = RepoJson.SerializeUtf8(settings);
+        await using var stream = new MemoryStream(bytes);
+        await _store.PutMutableAsync(
+            RepoPaths.GameSettingsKey(settings.GameId), stream, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>写入 Manifest，返回其内容 SHA256（manifestHash）。</summary>
     public async Task<string> WriteManifestAsync(
         string gameId, Manifest manifest, CancellationToken cancellationToken = default)

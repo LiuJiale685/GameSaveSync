@@ -15,6 +15,12 @@ public interface IRepositoryStore
     /// </summary>
     Task PutImmutableAsync(string key, Stream content, string sha256, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// 覆盖写入（后写者胜）。仅用于允许更新的仓库文件（如 games/&lt;id&gt;/settings.json）；
+    /// 版本数据（Object / Manifest / Commit）必须使用 <see cref="PutImmutableAsync"/>。
+    /// </summary>
+    Task PutMutableAsync(string key, Stream content, CancellationToken cancellationToken);
+
     /// <summary>列举指定前缀下的所有 key。适配器应忽略非规范命名的文件（网盘冲突副本容忍）。</summary>
     Task<IReadOnlyList<string>> ListAsync(string prefix, CancellationToken cancellationToken);
 

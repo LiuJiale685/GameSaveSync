@@ -70,6 +70,40 @@ public sealed class GameRepository
             return (IReadOnlyList<LocalGameConfig>)list;
         }, ct);
 
+    /// <summary>列出游戏并带出指定设备的本机存档路径（未映射时 SavePath 为空串）。</summary>
+    public Task<IReadOnlyList<LocalGameConfig>> ListGamesWithSavePathAsync(
+        string deviceId, CancellationToken ct = default)
+        => _db.ExecuteAsync(async conn =>
+        {
+            var list = new List<LocalGameConfig>();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                SELECT g.GameId, g.Name, g.ProcessNames, g.AutoBackup, g.AutoRestore, g.ExecutablePath,
+                       COALESCE(p.SavePath, '')
+                FROM Games g
+                LEFT JOIN GamePaths p ON p.GameId = g.GameId AND p.DeviceId = $d
+                ORDER BY g.Name
+                """;
+            cmd.Parameters.AddWithValue("$d", deviceId);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                list.Add(new LocalGameConfig
+                {
+                    GameId = reader.GetString(0),
+                    Name = reader.GetString(1),
+                    ProcessNames = reader.GetString(2)
+                        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .ToList(),
+                    AutoBackup = reader.GetInt64(3) != 0,
+                    AutoRestore = reader.GetInt64(4) != 0,
+                    ExecutablePath = reader.GetString(5),
+                    SavePath = reader.GetString(6),
+                });
+            }
+            return (IReadOnlyList<LocalGameConfig>)list;
+        }, ct);
+
     public Task<LocalGameConfig?> GetGameAsync(string gameId, CancellationToken ct = default)
         => _db.ExecuteAsync(async conn =>
         {

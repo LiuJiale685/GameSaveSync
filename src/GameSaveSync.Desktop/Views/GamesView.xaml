@@ -37,7 +37,7 @@
                     <GridViewColumn Header="进程名" DisplayMemberBinding="{Binding ProcessNamesText}" Width="130"/>
                     <GridViewColumn Header="游戏程序" DisplayMemberBinding="{Binding ExecutablePathText}" Width="180"/>
                     <GridViewColumn Header="GameId" DisplayMemberBinding="{Binding GameId}" Width="220"/>
-                    <GridViewColumn Header="操作" Width="190">
+                    <GridViewColumn Header="操作" Width="250">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
@@ -49,7 +49,11 @@
                                             IsEnabled="{Binding CanStop}"
                                             Command="{Binding DataContext.StopGameCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                                             CommandParameter="{Binding}"/>
+                                    <Button Content="编辑" Padding="8,2" Margin="0,0,4,0"
+                                            Command="{Binding DataContext.EditGameCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                            CommandParameter="{Binding}"/>
                                     <Button Content="删除" Padding="8,2"
+                                            IsEnabled="{Binding CanDelete}"
                                             Command="{Binding DataContext.DeleteGameCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                                             CommandParameter="{Binding}"/>
                                 </StackPanel>

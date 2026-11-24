@@ -95,6 +95,29 @@ public sealed class FolderRepositoryStore : IRepositoryStore
         }
     }
 
+    public async Task PutMutableAsync(
+        string key, Stream content, CancellationToken cancellationToken)
+    {
+        var targetPath = ResolveKeyPath(key);
+        var targetDir = Path.GetDirectoryName(targetPath)!;
+        Directory.CreateDirectory(targetDir);
+
+        // 先写临时文件再替换，避免网盘客户端读到写了一半的 JSON。
+        var tempPath = Path.Combine(targetDir, $".{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await using (var output = File.Create(tempPath))
+            {
+                await content.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+            }
+            File.Move(tempPath, targetPath, overwrite: true);
+        }
+        finally
+        {
+            TryDeleteFile(tempPath);
+        }
+    }
+
     public Task<IReadOnlyList<string>> ListAsync(string prefix, CancellationToken cancellationToken)
     {
         var result = new List<string>();
@@ -167,6 +190,10 @@ public sealed class FolderRepositoryStore : IRepositoryStore
         if (relativeKey.Contains("/game.json", StringComparison.Ordinal))
         {
             return fileName.Equals("game.json", StringComparison.OrdinalIgnoreCase);
+        }
+        if (relativeKey.Contains("/settings.json", StringComparison.Ordinal))
+        {
+            return fileName.Equals("settings.json", StringComparison.OrdinalIgnoreCase);
         }
         return fileName.Equals("repo.json", StringComparison.OrdinalIgnoreCase);
     }

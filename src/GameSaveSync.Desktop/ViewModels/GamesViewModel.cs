@@ -59,7 +59,7 @@ public sealed partial class GamesViewModel : ViewModelBase
     {
         IReadOnlyList<LocalGameConfig> games = Array.Empty<LocalGameConfig>();
         var ok = await RunBusyAsync(
-            async () => games = await _appService.ListGamesAsync(),
+            async () => games = await _appService.ListGamesWithSavePathAsync(),
             "正在加载游戏列表…");
         if (!ok)
             return;
@@ -133,6 +133,42 @@ public sealed partial class GamesViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task EditGameAsync(GameRowViewModel? row)
+    {
+        if (row is null)
+            return;
+        if (row.IsRunning)
+        {
+            Dialog.Info($"游戏「{row.Name}」正在运行，请先停止后再修改配置。");
+            return;
+        }
+
+        var input = Dialog.ShowEditGameDialog(row.Config);
+        if (input is null)
+            return;
+
+        var config = new LocalGameConfig
+        {
+            GameId = row.GameId,
+            Name = input.Name,
+            SavePath = input.SavePath,
+            ProcessNames = input.ProcessNames.ToList(),
+            ExecutablePath = input.ExecutablePath,
+            AutoBackup = row.Config.AutoBackup,
+            AutoRestore = row.Config.AutoRestore,
+        };
+
+        var ok = await RunBusyAsync(
+            () => _appService.UpdateGameAsync(config),
+            $"正在保存游戏「{config.Name}」配置…");
+        if (ok)
+        {
+            Dialog.Info($"游戏「{config.Name}」配置已更新。");
+            await LoadGamesAsync();
+        }
+    }
+
+    [RelayCommand]
     private async Task DeleteGameAsync(GameRowViewModel? row)
     {
         if (row is null)
@@ -185,6 +221,35 @@ public sealed partial class GamesViewModel : ViewModelBase
             return;
 
         StatusText = $"已启动「{row.Name}」，等待进程状态刷新…";
+
+        // 未配置进程名时，借助运行中的进程自动识别（并同步到共享仓库）
+        var detected = false;
+        if (row.Config.ProcessNames.Count == 0)
+        {
+            try
+            {
+                StatusText = $"正在自动识别「{row.Name}」的进程名…";
+                var names = await _monitor.DetectProcessNamesAsync(
+                    row.Config.ExecutablePath, TimeSpan.FromSeconds(20));
+                if (names.Count > 0)
+                {
+                    row.Config.ProcessNames = names.ToList();
+                    await _appService.UpdateGameAsync(row.Config);
+                    detected = true;
+                    StatusText = $"已识别进程名：{string.Join(", ", names)}";
+                }
+                else
+                {
+                    StatusText = "未能自动识别进程名，可在“编辑”中手动填写。";
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "自动识别游戏进程名失败。");
+                StatusText = "自动识别进程名失败，可在“编辑”中手动填写。";
+            }
+        }
+
         // 启动后稍等再刷新状态，让进程真正起来
         await Task.Delay(TimeSpan.FromSeconds(2));
         try
@@ -196,6 +261,8 @@ public sealed partial class GamesViewModel : ViewModelBase
             Log.Warning(ex, "刷新游戏运行状态失败。");
         }
         ApplyState(row.GameId, _monitor.GetRunningState(row.GameId));
+        if (detected)
+            await LoadGamesAsync();
     }
 
     /// <summary>停止游戏：按进程名优雅关闭，超时强制结束。</summary>

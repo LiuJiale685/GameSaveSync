@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using GameSaveSync.Core.Interfaces;
 using GameSaveSync.Core.Models;
+using GameSaveSync.Core.Services;
 using Serilog;
 
 namespace GameSaveSync.Desktop.Services;
@@ -51,6 +52,113 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
             ?? throw new InvalidOperationException("启动游戏进程失败。");
         Log.Information("已启动游戏进程：{Exe} (PID {Pid})", executablePath, process.Id);
         return process;
+    }
+
+    /// <summary>
+    /// 游戏启动后自动探测真实进程名（处理启动器拉起子进程、进程重建等情况）：
+    /// 在 <paramref name="timeout"/> 内轮询系统进程，匹配“与启动的 exe 同名”或
+    /// “可执行文件位于游戏 exe 所在目录下”的进程，返回带 .exe 后缀的进程名集合。
+    /// 探测不到返回空列表（不报错）。
+    /// </summary>
+    public async Task<IReadOnlyList<string>> DetectProcessNamesAsync(
+        string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath))
+            return Array.Empty<string>();
+
+        var exeName = ProcessNameNormalizer.Normalize(Path.GetFileName(executablePath));
+        var gameDir = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+        var deadline = DateTime.UtcNow + timeout;
+
+        // 先给游戏/启动器一点启动时间
+        await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var names = await Task.Run(() => ScanRunningProcessNames(exeName, gameDir), cancellationToken)
+                .ConfigureAwait(false);
+            if (names.Count > 0)
+            {
+                // 再等一轮，尽量把启动器随后拉起的真正游戏进程也纳入
+                await Task.Delay(TimeSpan.FromSeconds(1.5), cancellationToken).ConfigureAwait(false);
+                var extra = await Task.Run(() => ScanRunningProcessNames(exeName, gameDir), cancellationToken)
+                    .ConfigureAwait(false);
+                foreach (var name in extra)
+                    names.Add(name);
+
+                var result = names.ToList();
+                Log.Information("自动识别到游戏进程名：{Names}", string.Join(", ", result));
+                return result;
+            }
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+        }
+
+        Log.Information("未能自动识别游戏进程名（exe={Exe}，超时 {Timeout} 秒）。",
+            executablePath, timeout.TotalSeconds);
+        return Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// 立即扫描一次：返回“与指定 exe 同名”或“可执行文件位于该 exe 所在目录”的进程名
+    /// （带 .exe 后缀）。用于编辑对话框中的手动“自动识别”。
+    /// </summary>
+    public static IReadOnlyList<string> DetectRunningProcessNames(string executablePath)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath))
+            return Array.Empty<string>();
+
+        var exeName = ProcessNameNormalizer.Normalize(Path.GetFileName(executablePath));
+        var gameDir = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+        return ScanRunningProcessNames(exeName, gameDir).ToList();
+    }
+
+    private static HashSet<string> ScanRunningProcessNames(string exeName, string? gameDir)
+    {
+        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var dirPrefix = string.IsNullOrEmpty(gameDir)
+            ? null
+            : gameDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                try
+                {
+                    var normalized = ProcessNameNormalizer.Normalize(process.ProcessName);
+                    if (normalized.Length == 0)
+                        continue;
+                    if (string.Equals(normalized, exeName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        found.Add(normalized);
+                        continue;
+                    }
+                    if (dirPrefix is null)
+                        continue;
+
+                    string? filePath;
+                    try
+                    {
+                        filePath = process.MainModule?.FileName;
+                    }
+                    catch
+                    {
+                        // 受保护进程 / 位数不同时无法读取模块路径，忽略即可
+                        continue;
+                    }
+                    if (filePath is not null &&
+                        filePath.StartsWith(dirPrefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        found.Add(normalized);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "读取进程信息失败（已忽略）。");
+                }
+            }
+        }
+        return found;
     }
 
     /// <summary>停止游戏进程（先尝试优雅关闭窗口，超时后强制结束）。返回结束的进程数。</summary>
@@ -259,10 +367,10 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
         return false;
     }
 
-    /// <summary>构造规范化后的进程名集合（去 .exe、去空白、忽略大小写）。</summary>
+    /// <summary>构造规范化后的进程名集合（配置为 name.exe，比较时去掉 .exe）。</summary>
     private static HashSet<string> BuildTargetSet(IReadOnlyList<string> processNames)
         => processNames
-            .Select(NormalizeProcessName)
+            .Select(ProcessNameNormalizer.ToProcessName)
             .Where(name => name.Length > 0)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -282,14 +390,9 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
         }
     }
 
-    /// <summary>去掉 .exe 后缀并修剪空白（比较不区分大小写）。</summary>
+    /// <summary>去掉 .exe 后缀（Process.ProcessName 不含后缀），比较不区分大小写。</summary>
     private static string NormalizeProcessName(string name)
-    {
-        name = name.Trim();
-        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            name = name[..^4];
-        return name.Trim();
-    }
+        => ProcessNameNormalizer.ToProcessName(name);
 
     private sealed class WatchedGame(
         string gameId,

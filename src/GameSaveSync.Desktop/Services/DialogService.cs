@@ -11,7 +11,7 @@ namespace GameSaveSync.Desktop.Services;
 /// <param name="SharedGameId">绑定模式：选中的仓库共享游戏 gameId；新建模式为空字符串。</param>
 /// <param name="Name">本机显示名称。</param>
 /// <param name="SavePath">本机存档目录（已校验存在）。</param>
-/// <param name="ProcessNames">可选进程名列表（已去除 .exe 后缀、去重）。</param>
+/// <param name="ProcessNames">进程名列表（统一为带 .exe 后缀的格式，已去重）。</param>
 /// <param name="ExecutablePath">可选游戏可执行文件路径（空字符串表示未配置）。</param>
 public sealed record AddGameResult(
     string SharedGameId,
@@ -28,6 +28,9 @@ public interface IDialogService
     void Error(string message, string title = "GameSaveSync");
     string? PickFolder(string title);
     AddGameResult? ShowAddGameDialog(bool bindFromRepo, IReadOnlyList<SharedGameInfo> repoGames);
+
+    /// <summary>编辑已有游戏配置（名称、存档目录、进程名、游戏程序）。</summary>
+    AddGameResult? ShowEditGameDialog(LocalGameConfig game);
     string? PickItem(string prompt, IReadOnlyList<string> items);
     void ShowManifest(string title, IReadOnlyList<ManifestFileEntry> entries);
 }
@@ -55,6 +58,12 @@ public sealed class DialogService : IDialogService
     public AddGameResult? ShowAddGameDialog(bool bindFromRepo, IReadOnlyList<SharedGameInfo> repoGames)
     {
         var window = new AddGameWindow(bindFromRepo, repoGames) { Owner = Owner };
+        return window.ShowDialog() == true ? window.Result : null;
+    }
+
+    public AddGameResult? ShowEditGameDialog(LocalGameConfig game)
+    {
+        var window = new AddGameWindow(game) { Owner = Owner };
         return window.ShowDialog() == true ? window.Result : null;
     }
 

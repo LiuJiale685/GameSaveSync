@@ -118,9 +118,12 @@ public class BackupAndRestoreTests : MultiDeviceTestBase
         var backupCommit = versions.Single(v => v.Message == "恢复前自动备份");
         var restoreCommit = versions.Single(v => v.Message == "恢复历史版本");
 
-        // 恢复 Commit 复用目标版本的 Manifest，父版本为恢复前备份
+        // 恢复 Commit 复用目标版本的 Manifest，父版本为恢复前备份 + 被恢复的目标版本
+        // （同时引用目标版本，使目标版本不再是并行 Head）
         Assert.Equal(c1.ManifestHash, restoreCommit.ManifestHash);
-        Assert.Equal(new[] { backupCommit.CommitId }, restoreCommit.ParentIds);
+        Assert.Equal(
+            new[] { backupCommit.CommitId, c1.CommitId }.OrderBy(x => x, StringComparer.Ordinal),
+            restoreCommit.ParentIds.OrderBy(x => x, StringComparer.Ordinal));
         Assert.Equal(new[] { c2.CommitId }, backupCommit.ParentIds);
 
         // 恢复 Commit 成为唯一 Head，AppliedVersions 指向它 → 扫描显示"已是最新"

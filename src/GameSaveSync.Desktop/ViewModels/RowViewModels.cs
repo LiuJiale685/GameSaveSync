@@ -27,6 +27,7 @@ public sealed partial class GameRowViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]
     [NotifyPropertyChangedFor(nameof(CanStop))]
+    [NotifyPropertyChangedFor(nameof(CanDelete))]
     [NotifyPropertyChangedFor(nameof(StatusBrush))]
     private bool _isRunning;
 
@@ -34,6 +35,9 @@ public sealed partial class GameRowViewModel : ObservableObject
 
     /// <summary>可停止：正在运行且配置了进程名。</summary>
     public bool CanStop => IsRunning && Config.ProcessNames.Count > 0;
+
+    /// <summary>可删除 / 可编辑：游戏未运行（运行中修改或删除配置有风险）。</summary>
+    public bool CanDelete => !IsRunning;
 
     public string StatusBrush => IsRunning ? "#2E7D32" : "#9E9E9E";
 
