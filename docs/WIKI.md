@@ -177,6 +177,8 @@ SQLite（`%LOCALAPPDATA%\GameSaveSync\state.db`，绝不入云盘），单写者
 
 ## 9. 测试场景映射
 
+当前共 86 个用例：72 单元 + 14 集成（双临时目录模拟 A/B 两台设备），`dotnet test` 全部通过。
+
 | 场景 | 测试 | 结果 |
 |---|---|---|
 | T01 新设备首次同步 | `EndToEndSyncTests`（无基线 → 确认应用 → 快进应用，逐文件字节+哈希比对） | ✅ |
@@ -198,6 +200,7 @@ SQLite（`%LOCALAPPDATA%\GameSaveSync\state.db`，绝不入云盘），单写者
 | T19 schema 版本不匹配 | `RepoSchemaTests` | ✅ |
 | T20 克隆环境设备 ID 重置 | `RegenerateDeviceIdAsync` + 设置页按钮 | ✅ 实现 |
 | T21 仓库迁移（更换同步目录） | `MigrateRepositoryAsync` + 设置页"迁移仓库到新目录…"（`RepositoryMigrationTests`） | ✅ |
+| 进程名规范化跨设备同步 | `SharedGameSettingsTests` | ✅ |
 
 ## 10. FAQ
 

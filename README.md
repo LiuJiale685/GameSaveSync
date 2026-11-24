@@ -11,6 +11,8 @@
 - **依赖完整性校验**：版本"可见"≠"可应用"，应用前校验全部依赖文件存在且哈希一致
 - **游戏退出自动备份**：监控游戏进程，退出后延迟自动快照
 - **游戏启动器**：添加游戏时可选指定游戏 exe，在列表中一键启动 / 停止游戏并实时显示运行状态
+- **游戏隐藏与主题**：可隐藏暂时不玩的游戏；外观支持跟随系统 / 浅色 / 深色三种主题
+- **仓库统计**：设置页实时显示仓库对象数与总体积，便于评估去重效果
 - **本机数据不入云**：设备 ID、游戏路径等仅存本机 SQLite，共享仓库中无隐私信息
 
 ## 技术栈
@@ -43,7 +45,7 @@ dotnet run --project src\GameSaveSync.Desktop
 dotnet test GameSaveSync.sln
 ```
 
-73 个用例：60 单元测试 + 13 集成测试（双临时目录模拟 A/B 两台设备共享同一仓库）。
+共 86 个用例：72 单元测试 + 14 集成测试（双临时目录模拟 A/B 两台设备共享同一仓库）。
 
 ## 目录结构
 
@@ -59,7 +61,7 @@ GameSaveSync/
 │   ├── GameSaveSync.Storage/    # IRepositoryStore + 文件夹适配器 + 元数据读写
 │   ├── GameSaveSync.FileSystem/  # 扫描 / SHA256 / 目录监听
 │   ├── GameSaveSync.Snapshot/   # ObjectStore（去重）+ SnapshotBuilder（稳定性检查）
-│   ├── GameSaveSync.Data/        # 本地 SQLite（10 张表）
+│   ├── GameSaveSync.Data/        # 本地 SQLite（11 张表）
 │   ├── GameSaveSync.Sync/        # Commit/SyncEngine/ConflictResolver/RestoreManager/门面
 │   └── GameSaveSync.Desktop/     # WPF UI + 托盘 + 进程监控
 └── tests/
