@@ -35,4 +35,7 @@ public sealed class AppSettingsRepository
         }, ct);
 
     public const string RepoPathKey = "repoPath";
+
+    /// <summary>外观主题设置（0=跟随系统，1=浅色，2=深色）。</summary>
+    public const string ThemeKey = "themeMode";
 }

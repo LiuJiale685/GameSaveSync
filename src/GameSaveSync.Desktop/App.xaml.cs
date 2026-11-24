@@ -80,6 +80,13 @@ public partial class App : Application
             _services = BuildServices(db);
             var appService = _services.GetRequiredService<GameSaveSyncAppService>();
 
+            // ---------- 外观主题（在创建任何窗口前应用，避免闪烁） ----------
+            var savedTheme = _services.GetRequiredService<AppSettingsRepository>()
+                .GetAsync(AppSettingsRepository.ThemeKey, CancellationToken.None)
+                .GetAwaiter().GetResult();
+            ThemeService.Apply(Enum.TryParse<AppTheme>(savedTheme, out var theme) ? theme : AppTheme.System);
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+
             // ---------- 启动初始化（读取已保存的仓库配置并绑定） ----------
             appService.InitializeAsync(null, CancellationToken.None).GetAwaiter().GetResult();
 
@@ -168,8 +175,19 @@ public partial class App : Application
         };
     }
 
+    /// <summary>主题设置为“跟随系统”时，响应 Windows 深色模式切换。</summary>
+    private void OnUserPreferenceChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category == Microsoft.Win32.UserPreferenceCategory.General
+            && ThemeService.Current == AppTheme.System)
+        {
+            Dispatcher.Invoke(() => ThemeService.Apply(AppTheme.System));
+        }
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         try
         {
             _monitor?.Dispose();

@@ -30,7 +30,6 @@ public sealed partial class GameRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanDelete))]
     [NotifyPropertyChangedFor(nameof(LaunchActionText))]
     [NotifyPropertyChangedFor(nameof(CanToggleLaunch))]
-    [NotifyPropertyChangedFor(nameof(StatusBrush))]
     private bool _isRunning;
 
     public string StatusText => IsRunning ? "运行中" : "已停止";
@@ -41,12 +40,8 @@ public sealed partial class GameRowViewModel : ObservableObject
     /// <summary>可删除 / 可编辑：游戏未运行（运行中修改或删除配置有风险）。</summary>
     public bool CanDelete => !IsRunning;
 
-    public string StatusBrush => IsRunning ? "#2E7D32" : "#9E9E9E";
-
     /// <summary>已隐藏的游戏在“显示已隐藏”时以灰色名称提示。</summary>
     public bool IsHidden => Config.IsHidden;
-
-    public string NameBrush => IsHidden ? "#9E9E9E" : "#000000";
 
     public string HideActionText => IsHidden ? "取消隐藏" : "隐藏";
 

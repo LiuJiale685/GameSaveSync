@@ -31,6 +31,20 @@ public sealed partial class SettingsViewModel : ViewModelBase
     // ---- 开机自启动 ----
     [ObservableProperty] private bool _autoStartEnabled;
 
+    // ---- 外观 ----
+    /// <summary>主题选项（跟随系统 / 浅色 / 深色）。</summary>
+    public IReadOnlyList<ThemeOption> ThemeOptions { get; } = new[]
+    {
+        new ThemeOption(AppTheme.System, "跟随系统"),
+        new ThemeOption(AppTheme.Light, "浅色"),
+        new ThemeOption(AppTheme.Dark, "深色"),
+    };
+
+    [ObservableProperty] private ThemeOption? _selectedTheme;
+
+    private bool _suppressTheme;
+    private bool _themeLoaded;
+
     private bool _suppressAutoStart;
     private bool _autoStartLoaded;
 
@@ -61,6 +75,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
         AutoStartEnabled = AutoStartService.IsEnabled();
         _autoStartLoaded = true;
         _suppressAutoStart = false;
+
+        _suppressTheme = true;
+        SelectedTheme = ThemeOptions.FirstOrDefault(o => o.Theme == ThemeService.Current) ?? ThemeOptions[0];
+        _themeLoaded = true;
+        _suppressTheme = false;
 
         await RefreshStatsAsync();
     }
@@ -235,6 +254,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
         TotalSizeDisplay = FormatUtil.FormatBytes(stats.TotalBytes);
     }
 
+    partial void OnSelectedThemeChanged(ThemeOption? value)
+    {
+        if (_suppressTheme || !_themeLoaded || value is null)
+            return;
+        ThemeService.Apply(value.Theme);
+        _ = _settings.SetAsync(AppSettingsRepository.ThemeKey, value.Theme.ToString());
+        StatusText = $"外观已切换为：{value.DisplayName}。";
+    }
+
     partial void OnAutoStartEnabledChanged(bool value)
     {
         // 仅在初次加载完成后响应用户切换（默认关闭）
@@ -254,3 +282,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
 }
+
+/// <summary>外观主题下拉项。</summary>
+public sealed record ThemeOption(AppTheme Theme, string DisplayName);

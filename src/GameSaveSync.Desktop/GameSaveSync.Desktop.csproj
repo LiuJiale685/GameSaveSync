@@ -9,6 +9,8 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon />
     <AssemblyName>GameSaveSync</AssemblyName>
+    <!-- 启用 .NET 10 WPF 内置 Fluent 深浅色主题（Application.ThemeMode 仍标记为实验性）。 -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\GameSaveSync.Core\GameSaveSync.Core.csproj" />
