@@ -10,21 +10,50 @@
             <Button Content="从仓库绑定已有游戏" Command="{Binding BindFromRepoCommand}" Padding="10,3" Margin="0,0,8,0"/>
             <Button Content="刷新" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="0,0,8,0"/>
             <Button Content="刷新状态" Command="{Binding RefreshStatusCommand}" Padding="10,3" Margin="0,0,12,0"/>
+            <CheckBox Content="显示已隐藏" IsChecked="{Binding ShowHidden}" VerticalAlignment="Center" Margin="0,0,12,0"/>
             <ProgressBar Width="80" Height="12" IsIndeterminate="True" VerticalAlignment="Center"
                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
             <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="8,0,0,0"
                        Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
         </StackPanel>
-        <ListView ItemsSource="{Binding Games}" Margin="8,4,8,8">
+        <TextBlock DockPanel.Dock="Bottom" Margin="10,0,10,6" Foreground="Gray" FontSize="11"
+                   Text="右键点击游戏行可 编辑 / 隐藏 / 删除；鼠标悬停可查看存档目录等完整配置。"/>
+        <ListView ItemsSource="{Binding Games}" Margin="8,4,8,4">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="ToolTip" Value="{Binding DetailText}"/>
+                    <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}"/>
+                    <Setter Property="ContextMenu">
+                        <Setter.Value>
+                            <ContextMenu>
+                                <MenuItem Header="编辑…"
+                                          Command="{Binding PlacementTarget.Tag.EditGameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="{Binding PlacementTarget.DataContext.HideActionText, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Command="{Binding PlacementTarget.Tag.ToggleHideCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <Separator/>
+                                <MenuItem Header="删除…"
+                                          IsEnabled="{Binding PlacementTarget.DataContext.CanDelete, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Command="{Binding PlacementTarget.Tag.DeleteGameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            </ContextMenu>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </ListView.ItemContainerStyle>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="游戏名称" DisplayMemberBinding="{Binding Name}" Width="130"/>
-                    <GridViewColumn Header="状态" Width="70">
+                    <GridViewColumn Header="游戏名称" Width="300">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" Foreground="{Binding NameBrush}" FontSize="13"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="状态" Width="90">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding StatusText}"
@@ -33,30 +62,13 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="存档目录" DisplayMemberBinding="{Binding SavePath}" Width="230"/>
-                    <GridViewColumn Header="进程名" DisplayMemberBinding="{Binding ProcessNamesText}" Width="130"/>
-                    <GridViewColumn Header="游戏程序" DisplayMemberBinding="{Binding ExecutablePathText}" Width="180"/>
-                    <GridViewColumn Header="GameId" DisplayMemberBinding="{Binding GameId}" Width="220"/>
-                    <GridViewColumn Header="操作" Width="250">
+                    <GridViewColumn Header="操作" Width="90">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="启动" Padding="8,2" Margin="0,0,4,0"
-                                            IsEnabled="{Binding CanLaunch}"
-                                            Command="{Binding DataContext.LaunchGameCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                            CommandParameter="{Binding}"/>
-                                    <Button Content="停止" Padding="8,2" Margin="0,0,4,0"
-                                            IsEnabled="{Binding CanStop}"
-                                            Command="{Binding DataContext.StopGameCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                            CommandParameter="{Binding}"/>
-                                    <Button Content="编辑" Padding="8,2" Margin="0,0,4,0"
-                                            Command="{Binding DataContext.EditGameCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                            CommandParameter="{Binding}"/>
-                                    <Button Content="删除" Padding="8,2"
-                                            IsEnabled="{Binding CanDelete}"
-                                            Command="{Binding DataContext.DeleteGameCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                            CommandParameter="{Binding}"/>
-                                </StackPanel>
+                                <Button Content="{Binding LaunchActionText}" Padding="10,2" MinWidth="60"
+                                        IsEnabled="{Binding CanToggleLaunch}"
+                                        Command="{Binding DataContext.ToggleLaunchCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                        CommandParameter="{Binding}"/>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>

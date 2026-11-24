@@ -18,14 +18,15 @@ public sealed class GameRepository
         {
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = """
-                INSERT INTO Games (GameId, Name, ProcessNames, ExecutablePath, AutoBackup, AutoRestore, CreatedAt)
-                VALUES ($id, $name, $procs, $exe, $autoB, $autoR, $created)
+                INSERT INTO Games (GameId, Name, ProcessNames, ExecutablePath, AutoBackup, AutoRestore, Hidden, CreatedAt)
+                VALUES ($id, $name, $procs, $exe, $autoB, $autoR, $hidden, $created)
                 ON CONFLICT(GameId) DO UPDATE SET
                     Name = excluded.Name,
                     ProcessNames = excluded.ProcessNames,
                     ExecutablePath = excluded.ExecutablePath,
                     AutoBackup = excluded.AutoBackup,
-                    AutoRestore = excluded.AutoRestore
+                    AutoRestore = excluded.AutoRestore,
+                    Hidden = excluded.Hidden
                 """;
             cmd.Parameters.AddWithValue("$id", config.GameId);
             cmd.Parameters.AddWithValue("$name", config.Name);
@@ -33,6 +34,7 @@ public sealed class GameRepository
             cmd.Parameters.AddWithValue("$exe", config.ExecutablePath ?? string.Empty);
             cmd.Parameters.AddWithValue("$autoB", config.AutoBackup ? 1 : 0);
             cmd.Parameters.AddWithValue("$autoR", config.AutoRestore ? 1 : 0);
+            cmd.Parameters.AddWithValue("$hidden", config.IsHidden ? 1 : 0);
             cmd.Parameters.AddWithValue("$created", UtcClock.Now());
             await cmd.ExecuteNonQueryAsync(ct);
         }, ct);
@@ -51,7 +53,7 @@ public sealed class GameRepository
         {
             var list = new List<LocalGameConfig>();
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT GameId, Name, ProcessNames, AutoBackup, AutoRestore, ExecutablePath FROM Games ORDER BY Name";
+            cmd.CommandText = "SELECT GameId, Name, ProcessNames, AutoBackup, AutoRestore, ExecutablePath, Hidden FROM Games ORDER BY Name";
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
@@ -65,6 +67,7 @@ public sealed class GameRepository
                     AutoBackup = reader.GetInt64(3) != 0,
                     AutoRestore = reader.GetInt64(4) != 0,
                     ExecutablePath = reader.GetString(5),
+                    IsHidden = reader.GetInt64(6) != 0,
                 });
             }
             return (IReadOnlyList<LocalGameConfig>)list;
@@ -79,7 +82,7 @@ public sealed class GameRepository
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 SELECT g.GameId, g.Name, g.ProcessNames, g.AutoBackup, g.AutoRestore, g.ExecutablePath,
-                       COALESCE(p.SavePath, '')
+                       COALESCE(p.SavePath, ''), g.Hidden
                 FROM Games g
                 LEFT JOIN GamePaths p ON p.GameId = g.GameId AND p.DeviceId = $d
                 ORDER BY g.Name
@@ -99,6 +102,7 @@ public sealed class GameRepository
                     AutoRestore = reader.GetInt64(4) != 0,
                     ExecutablePath = reader.GetString(5),
                     SavePath = reader.GetString(6),
+                    IsHidden = reader.GetInt64(7) != 0,
                 });
             }
             return (IReadOnlyList<LocalGameConfig>)list;
@@ -108,7 +112,7 @@ public sealed class GameRepository
         => _db.ExecuteAsync(async conn =>
         {
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT GameId, Name, ProcessNames, AutoBackup, AutoRestore, ExecutablePath FROM Games WHERE GameId = $id";
+            cmd.CommandText = "SELECT GameId, Name, ProcessNames, AutoBackup, AutoRestore, ExecutablePath, Hidden FROM Games WHERE GameId = $id";
             cmd.Parameters.AddWithValue("$id", gameId);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             if (!await reader.ReadAsync(ct))
@@ -123,6 +127,7 @@ public sealed class GameRepository
                 AutoBackup = reader.GetInt64(3) != 0,
                 AutoRestore = reader.GetInt64(4) != 0,
                 ExecutablePath = reader.GetString(5),
+                IsHidden = reader.GetInt64(6) != 0,
             };
         }, ct);
 

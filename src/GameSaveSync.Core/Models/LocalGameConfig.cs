@@ -22,4 +22,7 @@ public sealed class LocalGameConfig
     public bool AutoBackup { get; set; } = true;
 
     public bool AutoRestore { get; set; } = true;
+
+    /// <summary>是否在游戏列表中隐藏（仅影响显示，同步与备份等能力不受影响）。</summary>
+    public bool IsHidden { get; set; }
 }

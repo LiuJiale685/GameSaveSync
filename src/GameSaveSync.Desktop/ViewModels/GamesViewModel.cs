@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GameSaveSync.Core.Models;
 using GameSaveSync.Desktop.Services;
@@ -21,7 +22,15 @@ public sealed partial class GamesViewModel : ViewModelBase
     private readonly GameSaveSyncAppService _appService;
     private readonly GameProcessMonitorService _monitor;
 
+    private IReadOnlyList<LocalGameConfig> _allGames = Array.Empty<LocalGameConfig>();
+
     public ObservableCollection<GameRowViewModel> Games { get; } = new();
+
+    /// <summary>是否在列表中显示已隐藏的游戏。</summary>
+    [ObservableProperty]
+    private bool _showHidden;
+
+    partial void OnShowHiddenChanged(bool value) => RebuildRows();
 
     /// <summary>游戏增删后触发（供其它页签联动刷新游戏选择器、进程监控）。</summary>
     public event Action? GamesChanged;
@@ -54,6 +63,18 @@ public sealed partial class GamesViewModel : ViewModelBase
             row.IsRunning = isRunning;
     }
 
+    /// <summary>按“是否显示已隐藏”过滤后重建列表行（保留已知运行状态）。</summary>
+    private void RebuildRows()
+    {
+        Games.Clear();
+        foreach (var game in _allGames)
+        {
+            if (game.IsHidden && !ShowHidden)
+                continue;
+            Games.Add(new GameRowViewModel(game, _monitor.GetRunningState(game.GameId)));
+        }
+    }
+
     [RelayCommand]
     private async Task LoadGamesAsync()
     {
@@ -65,8 +86,8 @@ public sealed partial class GamesViewModel : ViewModelBase
             return;
 
         Games.Clear();
-        foreach (var game in games)
-            Games.Add(new GameRowViewModel(game));
+        _allGames = games;
+        RebuildRows();
 
         // 进程监控使用最新配置（游戏退出自动备份）
         _monitor.UpdateGames(games);
@@ -156,6 +177,7 @@ public sealed partial class GamesViewModel : ViewModelBase
             ExecutablePath = input.ExecutablePath,
             AutoBackup = row.Config.AutoBackup,
             AutoRestore = row.Config.AutoRestore,
+            IsHidden = row.Config.IsHidden,
         };
 
         var ok = await RunBusyAsync(
@@ -191,6 +213,38 @@ public sealed partial class GamesViewModel : ViewModelBase
             Dialog.Info($"游戏「{row.Name}」已删除。");
             await LoadGamesAsync();
         }
+    }
+
+    /// <summary>隐藏 / 取消隐藏游戏（仅影响列表显示，不停止同步与自动备份）。</summary>
+    [RelayCommand]
+    private async Task ToggleHideAsync(GameRowViewModel? row)
+    {
+        if (row is null)
+            return;
+
+        var hide = !row.Config.IsHidden;
+        var ok = await RunBusyAsync(
+            () => _appService.SetGameHiddenAsync(row.GameId, hide),
+            hide ? $"正在隐藏游戏「{row.Name}」…" : $"正在取消隐藏「{row.Name}」…");
+        if (!ok)
+            return;
+
+        await LoadGamesAsync();
+        StatusText = hide
+            ? $"已隐藏「{row.Name}」，勾选“显示已隐藏”可再次查看。"
+            : $"已取消隐藏「{row.Name}」。";
+    }
+
+    /// <summary>启动 / 停止切换：未运行时启动，运行中停止。</summary>
+    [RelayCommand]
+    private async Task ToggleLaunchAsync(GameRowViewModel? row)
+    {
+        if (row is null)
+            return;
+        if (row.IsRunning)
+            await StopGameAsync(row);
+        else
+            await LaunchGameAsync(row);
     }
 
     /// <summary>启动游戏：校验可执行文件后由系统 Shell 启动进程。</summary>

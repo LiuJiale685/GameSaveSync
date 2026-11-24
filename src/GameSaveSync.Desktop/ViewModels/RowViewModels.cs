@@ -28,6 +28,8 @@ public sealed partial class GameRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(StatusText))]
     [NotifyPropertyChangedFor(nameof(CanStop))]
     [NotifyPropertyChangedFor(nameof(CanDelete))]
+    [NotifyPropertyChangedFor(nameof(LaunchActionText))]
+    [NotifyPropertyChangedFor(nameof(CanToggleLaunch))]
     [NotifyPropertyChangedFor(nameof(StatusBrush))]
     private bool _isRunning;
 
@@ -40,6 +42,27 @@ public sealed partial class GameRowViewModel : ObservableObject
     public bool CanDelete => !IsRunning;
 
     public string StatusBrush => IsRunning ? "#2E7D32" : "#9E9E9E";
+
+    /// <summary>已隐藏的游戏在“显示已隐藏”时以灰色名称提示。</summary>
+    public bool IsHidden => Config.IsHidden;
+
+    public string NameBrush => IsHidden ? "#9E9E9E" : "#000000";
+
+    public string HideActionText => IsHidden ? "取消隐藏" : "隐藏";
+
+    /// <summary>启动 / 停止按钮文案：未运行时为“启动”，运行中变为“停止”。</summary>
+    public string LaunchActionText => IsRunning ? "停止" : "启动";
+
+    /// <summary>启动/停止按钮可用性：未运行时需配置 exe，运行中需配置进程名。</summary>
+    public bool CanToggleLaunch => IsRunning ? CanStop : CanLaunch;
+
+    /// <summary>列表行的悬停提示：完整配置（存档目录、进程名、游戏程序、GameId）。</summary>
+    public string DetailText => string.Join(Environment.NewLine,
+        Name,
+        $"存档目录：{SavePath}",
+        $"进程名：{ProcessNamesText}",
+        $"游戏程序：{ExecutablePathText}",
+        $"GameId：{GameId}");
 
     public GameRowViewModel(LocalGameConfig config, bool isRunning = false)
     {

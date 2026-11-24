@@ -263,6 +263,20 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
     public Task RemoveGameAsync(string gameId, CancellationToken ct = default)
         => _gameRepo.RemoveGameAsync(gameId, ct);
 
+    /// <summary>
+    /// 设置游戏是否在列表中隐藏（仅影响显示，存档、版本历史与自动备份不受影响）。
+    /// </summary>
+    public async Task SetGameHiddenAsync(string gameId, bool hidden, CancellationToken ct = default)
+    {
+        var game = await _gameRepo.GetGameAsync(gameId, ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"本地配置中不存在游戏 {gameId}。");
+        if (game.IsHidden == hidden)
+            return;
+
+        game.IsHidden = hidden;
+        await _gameRepo.AddOrUpdateGameAsync(game, ct).ConfigureAwait(false);
+    }
+
     // ---------- 备份与版本 ----------
 
     /// <summary>手动为游戏创建快照并发布 Commit（阶段一核心能力）。</summary>

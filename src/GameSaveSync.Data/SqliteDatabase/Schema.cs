@@ -32,6 +32,7 @@ public static class Schema
             ExecutablePath TEXT NOT NULL DEFAULT '',
             AutoBackup INTEGER NOT NULL DEFAULT 1,
             AutoRestore INTEGER NOT NULL DEFAULT 1,
+            Hidden INTEGER NOT NULL DEFAULT 0,
             CreatedAt TEXT NOT NULL
         )
         """,
@@ -131,6 +132,10 @@ public static class Schema
 
         await EnsureColumnAsync(connection, "Games", "ExecutablePath",
             "ALTER TABLE Games ADD COLUMN ExecutablePath TEXT NOT NULL DEFAULT ''", cancellationToken)
+            .ConfigureAwait(false);
+
+        await EnsureColumnAsync(connection, "Games", "Hidden",
+            "ALTER TABLE Games ADD COLUMN Hidden INTEGER NOT NULL DEFAULT 0", cancellationToken)
             .ConfigureAwait(false);
 
         await using var versionCmd = connection.CreateCommand();
