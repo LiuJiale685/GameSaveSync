@@ -38,6 +38,7 @@
 | 冲突三选项 + 多父 Commit 收敛 | [ConflictResolver](../src/GameSaveSync.Sync/ConflictResolver/ConflictResolver.cs) |
 | 绑定已有游戏复用共享 gameId | `BindExistingGameAsync`（T17 已测） |
 | 克隆环境设备 ID 重置 | `RegenerateDeviceIdAsync` + 设置页（T20） |
+| 仓库迁移到新同步目录 | `MigrateRepositoryAsync`（复制+哈希校验+切换绑定+可选清理旧目录）+ 设置页"迁移仓库到新目录…"（T21 已测） |
 
 ### 阶段四部分能力（提前完成）
 
@@ -50,7 +51,7 @@
 ### 测试覆盖
 
 - 单元：确定性序列化、路径规范化、DAG 分析、存储 create-if-absent / 冲突副本 / 越界 key、schema 校验
-- 集成（双临时目录模拟 A/B 两设备）：T01/T02/T03/T04/T05/T06/T07/T10/T11/T17
+- 集成（双临时目录模拟 A/B 两设备）：T01/T02/T03/T04/T05/T06/T07/T10/T11/T17/T21
 - 详见 [WIKI §9](WIKI.md#9-测试场景映射)
 
 ---

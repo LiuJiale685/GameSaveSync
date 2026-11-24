@@ -197,6 +197,7 @@ SQLite（`%LOCALAPPDATA%\GameSaveSync\state.db`，绝不入云盘），单写者
 | T17 复用共享 gameId 绑定 | `EndToEndSyncTests` | ✅ |
 | T19 schema 版本不匹配 | `RepoSchemaTests` | ✅ |
 | T20 克隆环境设备 ID 重置 | `RegenerateDeviceIdAsync` + 设置页按钮 | ✅ 实现 |
+| T21 仓库迁移（更换同步目录） | `MigrateRepositoryAsync` + 设置页"迁移仓库到新目录…"（`RepositoryMigrationTests`） | ✅ |
 
 ## 10. FAQ
 
@@ -214,6 +215,9 @@ SQLite（`%LOCALAPPDATA%\GameSaveSync\state.db`，绝不入云盘），单写者
 
 **如何换电脑？**
 新设备安装 → 绑定同一网盘仓库目录 → "从仓库绑定已有游戏"复用同一 gameId → 映射本机存档路径 → 应用云端版本。
+
+**如何更换网盘/同步目录？**
+不要直接"绑定"到新目录（会连到一个空仓库，历史版本全部看不到）。用设置页的 **迁移仓库到新目录…**：逐文件复制 `repo.json`、`devices/`、`games/`、`objects/` 到新目录，每个文件都做 SHA256 双向校验；全部成功后保留原 `repositoryId` 并自动切换绑定，最后可选是否删除旧目录。新目录已存在**另一个**仓库（repositoryId 不同）时会拒绝迁移，避免两个仓库数据串在一起。若目标是同一仓库的另一个副本（repositoryId 相同），只补齐缺失文件，同名但不一致的文件会报错而不覆盖。
 
 **游戏存档目录被游戏占用（正在写盘）怎么办？**
 稳定性检查（两次采样大小/mtime 一致）+ 3 次重试；仍不稳定的文件会中止本次备份而不是产出损坏版本。游戏运行时默认禁止覆盖恢复。

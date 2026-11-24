@@ -332,6 +332,170 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
     public Task<IReadOnlyList<SyncTaskRecord>> RecoverPendingTasksAsync(CancellationToken ct = default)
         => new SyncTaskRepository(_db).ListIncompleteAsync(ct);
 
+    // ---------- 仓库迁移 ----------
+
+    /// <summary>
+    /// 仓库迁移：把当前仓库的全部内容（repo.json、devices、games、commits、manifests、objects）
+    /// 复制到新目录，校验后自动切换绑定并更新本地设置。更换网盘同步目录时使用。
+    /// 保留原 repositoryId，因此历史版本、其他设备的 Commit 均继续有效。
+    /// </summary>
+    /// <param name="newRepoRootPath">新仓库根目录（不存在则创建；已存在则须为空目录或同一仓库）。</param>
+    /// <param name="clearSourceRepository">迁移成功后是否删除旧目录中的仓库文件。</param>
+    public async Task<RepoMigrationResult> MigrateRepositoryAsync(
+        string newRepoRootPath,
+        bool clearSourceRepository = false,
+        IProgress<RepoMigrationProgress>? progress = null,
+        CancellationToken ct = default)
+    {
+        EnsureRepoBound();
+        if (string.IsNullOrWhiteSpace(newRepoRootPath))
+            throw new ArgumentException("新仓库目录不能为空。", nameof(newRepoRootPath));
+
+        var sourceRoot = Path.GetFullPath(_repoPath!);
+        var targetRoot = Path.GetFullPath(newRepoRootPath.Trim());
+
+        if (PathNormalizer.PathsEqual(sourceRoot, targetRoot))
+            throw new InvalidOperationException("新仓库目录与当前仓库相同，无需迁移。");
+        if (PathNormalizer.IsUnderRoot(targetRoot, sourceRoot) || PathNormalizer.IsUnderRoot(sourceRoot, targetRoot))
+            throw new InvalidOperationException("新仓库目录不能位于当前仓库目录之内，也不能包含当前仓库目录。");
+
+        var sourceRepo = await _repoFiles!.TryReadRepoInfoAsync(ct).ConfigureAwait(false)
+            ?? throw new RepoIntegrityException("当前仓库缺少 repo.json，无法迁移。");
+
+        // 目标目录校验：不存在则创建；已存在则必须是空目录，或同一个仓库（补齐缺失内容）。
+        if (!Directory.Exists(targetRoot))
+        {
+            Directory.CreateDirectory(targetRoot);
+        }
+        else if (!File.Exists(Path.Combine(targetRoot, RepoPaths.RepoInfoKey))
+                 && Directory.EnumerateFileSystemEntries(targetRoot).Any())
+        {
+            throw new InvalidOperationException($"目标目录非空且不是 GameSaveSync 仓库：{targetRoot}");
+        }
+
+        var targetRepoFiles = new RepoFileService(new FolderRepositoryStore(targetRoot));
+        var targetRepo = await targetRepoFiles.TryReadRepoInfoAsync(ct).ConfigureAwait(false);
+        if (targetRepo is not null
+            && !string.Equals(targetRepo.RepositoryId, sourceRepo.RepositoryId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"目标目录已存放另一个仓库（repositoryId={targetRepo.RepositoryId}），" +
+                "为避免两个仓库的数据混在一起，迁移已取消。请选择一个空目录或同一个仓库目录。");
+        }
+
+        // 逐文件复制并校验：已存在且内容一致则跳过，不一致直接报错而非覆盖。
+        var sourceFiles = Directory
+            .EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories)
+            .Where(f => !IsTempArtifact(f))
+            .ToList();
+        var totalBytes = sourceFiles.Sum(f => new FileInfo(f).Length);
+        var copiedFiles = 0;
+        long copiedBytes = 0;
+
+        progress?.Report(new RepoMigrationProgress(0, sourceFiles.Count, 0, totalBytes));
+        foreach (var sourceFile in sourceFiles)
+        {
+            ct.ThrowIfCancellationRequested();
+            var relative = Path.GetRelativePath(sourceRoot, sourceFile);
+            var targetFile = Path.Combine(targetRoot, relative);
+            copiedBytes += await CopyFileVerifiedAsync(sourceFile, targetFile, ct).ConfigureAwait(false);
+            copiedFiles++;
+            if (copiedFiles % 16 == 0 || copiedFiles == sourceFiles.Count)
+                progress?.Report(new RepoMigrationProgress(copiedFiles, sourceFiles.Count, copiedBytes, totalBytes));
+        }
+
+        // 复制完成后再确认一次仓库身份，然后切换绑定。
+        var migratedRepo = await targetRepoFiles.TryReadRepoInfoAsync(ct).ConfigureAwait(false)
+            ?? throw new RepoIntegrityException($"迁移后目标目录缺少 repo.json：{targetRoot}");
+        if (!string.Equals(migratedRepo.RepositoryId, sourceRepo.RepositoryId, StringComparison.OrdinalIgnoreCase))
+            throw new RepoIntegrityException("迁移后目标仓库的 repositoryId 与源仓库不一致。");
+
+        await BindRepositoryAsync(targetRoot, ct).ConfigureAwait(false);
+        await _settings.SetAsync(AppSettingsRepository.RepoPathKey, targetRoot, ct).ConfigureAwait(false);
+
+        var sourceCleared = false;
+        string? cleanupError = null;
+        if (clearSourceRepository)
+        {
+            try
+            {
+                Directory.Delete(sourceRoot, recursive: true);
+                sourceCleared = true;
+            }
+            catch (Exception ex)
+            {
+                cleanupError = ex.Message;
+                Log.Warning(ex, "迁移完成但旧目录清理失败: {SourceRoot}", sourceRoot);
+            }
+        }
+
+        Log.Information(
+            "仓库迁移完成：{Source} → {Target}（{FileCount} 个文件 / {Bytes} 字节，repositoryId={RepositoryId}，旧目录已清理={Cleared}）",
+            sourceRoot, targetRoot, copiedFiles, copiedBytes, migratedRepo.RepositoryId, sourceCleared);
+
+        return new RepoMigrationResult(
+            targetRoot, migratedRepo.RepositoryId, copiedFiles, copiedBytes, sourceCleared, cleanupError);
+    }
+
+    /// <summary>复制单个仓库文件：写入临时文件 → 双向哈希校验 → 原子改名；已存在且一致则跳过。</summary>
+    private static async Task<long> CopyFileVerifiedAsync(
+        string sourcePath, string targetPath, CancellationToken ct)
+    {
+        var sourceLength = new FileInfo(sourcePath).Length;
+
+        if (File.Exists(targetPath))
+        {
+            if (new FileInfo(targetPath).Length == sourceLength)
+            {
+                var sourceHash = await ComputeFileSha256Async(sourcePath, ct).ConfigureAwait(false);
+                var targetHash = await ComputeFileSha256Async(targetPath, ct).ConfigureAwait(false);
+                if (string.Equals(sourceHash, targetHash, StringComparison.Ordinal))
+                    return sourceLength;
+            }
+            throw new RepoIntegrityException($"目标仓库已存在内容不同的同名文件：{targetPath}");
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+        var tempPath = $"{targetPath}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            await using (var input = File.Open(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            await using (var output = File.Create(tempPath))
+            {
+                await input.CopyToAsync(output, ct).ConfigureAwait(false);
+            }
+
+            var sourceHash = await ComputeFileSha256Async(sourcePath, ct).ConfigureAwait(false);
+            var tempHash = await ComputeFileSha256Async(tempPath, ct).ConfigureAwait(false);
+            if (!string.Equals(sourceHash, tempHash, StringComparison.Ordinal))
+                throw new RepoIntegrityException($"复制校验失败：{sourcePath}");
+
+            File.Move(tempPath, targetPath);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                try { File.Delete(tempPath); } catch (IOException) { }
+            }
+        }
+
+        return sourceLength;
+    }
+
+    private static async Task<string> ComputeFileSha256Async(string path, CancellationToken ct)
+    {
+        await using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return await FolderRepositoryStore.ComputeSha256Async(stream, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>仓库临时文件（写入中断残留的 .*.tmp）不参与迁移。</summary>
+    private static bool IsTempArtifact(string path)
+    {
+        var name = Path.GetFileName(path);
+        return name.StartsWith('.') && name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
+    }
+
     // ---------- 统计 ----------
 
     /// <summary>仓库对象数与体积统计（方案 13.3）。</summary>
@@ -387,3 +551,22 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         await _db.DisposeAsync();
     }
 }
+
+/// <summary>仓库迁移进度（用于 UI 提示）。</summary>
+public readonly record struct RepoMigrationProgress(
+    int CopiedFiles, int TotalFiles, long CopiedBytes, long TotalBytes);
+
+/// <summary>仓库迁移结果。</summary>
+/// <param name="NewRepoPath">迁移后的新仓库根目录（已绑定）。</param>
+/// <param name="RepositoryId">仓库 ID（迁移后保持不变）。</param>
+/// <param name="CopiedFileCount">已校验复制的文件数。</param>
+/// <param name="CopiedBytes">已校验复制的字节数。</param>
+/// <param name="SourceCleared">旧目录是否已删除。</param>
+/// <param name="CleanupError">旧目录删除失败时的错误信息（为 null 表示无错误）。</param>
+public sealed record RepoMigrationResult(
+    string NewRepoPath,
+    string RepositoryId,
+    int CopiedFileCount,
+    long CopiedBytes,
+    bool SourceCleared,
+    string? CleanupError);

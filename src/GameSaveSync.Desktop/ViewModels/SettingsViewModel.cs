@@ -88,6 +88,19 @@ public sealed partial class SettingsViewModel : ViewModelBase
             return;
         }
 
+        // 已绑定且指向不同目录：直接改绑会丢掉历史版本，必须走"迁移仓库"。
+        if (_appService.IsRepositoryBound
+            && !string.Equals(
+                System.IO.Path.GetFullPath(path),
+                System.IO.Path.GetFullPath(_appService.RepoPath ?? string.Empty),
+                System.StringComparison.OrdinalIgnoreCase))
+        {
+            Dialog.Error(
+                "当前已绑定仓库。更换同步目录请使用“迁移仓库到新目录…”：" +
+                "直接改绑会连接到空目录，导致历史版本丢失。");
+            return;
+        }
+
         var ok = await RunBusyAsync(async () =>
         {
             // 绑定仓库并把路径持久化到本地设置（下次启动 InitializeAsync 会自动绑定）
@@ -100,6 +113,81 @@ public sealed partial class SettingsViewModel : ViewModelBase
         BoundRepoPath = path;
         RepoPathInput = path;
         Dialog.Info($"仓库已绑定：{path}");
+        await RefreshStatsAsync();
+    }
+
+    /// <summary>
+    /// 迁移仓库到新目录（更换网盘同步目录时使用）：复制全部历史并校验，
+    /// 成功后自动切换绑定；可在确认对话框选择是否删除旧目录中的数据。
+    /// </summary>
+    [RelayCommand]
+    private async Task MigrateRepoAsync()
+    {
+        if (!_appService.IsRepositoryBound)
+        {
+            Dialog.Error("当前尚未绑定仓库，请先绑定或初始化一个仓库。");
+            return;
+        }
+
+        var path = RepoPathInput?.Trim();
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            Dialog.Error("请先填写或选择新的仓库目录。");
+            return;
+        }
+        if (string.Equals(
+                System.IO.Path.GetFullPath(path),
+                System.IO.Path.GetFullPath(_appService.RepoPath ?? string.Empty),
+                System.StringComparison.OrdinalIgnoreCase))
+        {
+            Dialog.Error("新目录与当前仓库相同，无需迁移。");
+            return;
+        }
+        if (System.IO.Directory.Exists(path)
+            && System.IO.Directory.EnumerateFileSystemEntries(path).Any()
+            && !System.IO.File.Exists(System.IO.Path.Combine(path, "repo.json")))
+        {
+            Dialog.Error($"目标目录非空且不是 GameSaveSync 仓库：{path}");
+            return;
+        }
+
+        if (!Dialog.Confirm(
+                $"将把当前仓库的全部历史（对象、清单、提交记录）复制到：\n{path}\n\n" +
+                "复制过程会逐个校验文件哈希，完成后自动切换绑定。" +
+                "全部分区完成后才会切换，中途失败不会影响当前仓库。",
+                "迁移仓库到新目录"))
+            return;
+
+        var clearSource = Dialog.Confirm(
+            "迁移成功后是否删除旧目录中的仓库数据？\n\n" +
+            "选择“是”：删除旧目录（释放空间，但旧目录若仍在网盘同步范围内会被同步删除）。\n" +
+            "选择“否”：保留旧目录作为备份，需你稍后手动清理。",
+            "是否清理旧目录");
+
+        RepoMigrationResult? result = null;
+        var ok = await RunBusyAsync(async () =>
+        {
+            result = await _appService.MigrateRepositoryAsync(path, clearSource);
+            await _settings.SetAsync(AppSettingsRepository.RepoPathKey, path);
+        }, "正在迁移仓库（复制并校验全部历史）…");
+        if (!ok || result is null)
+            return;
+
+        BoundRepoPath = result.NewRepoPath;
+        RepoPathInput = result.NewRepoPath;
+
+        var summary =
+            $"仓库迁移完成：\n{result.NewRepoPath}\n\n" +
+            $"复制 {result.CopiedFileCount} 个文件，共 {FormatUtil.FormatBytes(result.CopiedBytes)}。" +
+            "\n仓库 ID 保持不变，历史版本与其他设备的记录继续有效。";
+        if (result.SourceCleared)
+            summary += "\n旧目录已删除。";
+        else if (result.CleanupError is not null)
+            summary += $"\n旧目录清理失败：{result.CleanupError}\n可稍后手动删除。";
+        else
+            summary += "\n旧目录已保留，可稍后手动清理。";
+        Dialog.Info(summary);
+
         await RefreshStatsAsync();
     }
 

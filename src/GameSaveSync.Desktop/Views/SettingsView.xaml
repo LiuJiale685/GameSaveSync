@@ -21,7 +21,10 @@
                         <TextBox Text="{Binding RepoPathInput, UpdateSourceTrigger=PropertyChanged}" Width="400" VerticalAlignment="Center"/>
                         <Button Content="浏览…" Command="{Binding BrowseRepoCommand}" Margin="6,0,0,0" Padding="10,3"/>
                         <Button Content="绑定仓库" Command="{Binding BindRepoCommand}" Margin="6,0,0,0" Padding="10,3"/>
+                        <Button Content="迁移仓库到新目录…" Command="{Binding MigrateRepoCommand}" Margin="6,0,0,0" Padding="10,3"/>
                     </StackPanel>
+                    <TextBlock Margin="0,6,0,0" Foreground="Gray" TextWrapping="Wrap"
+                               Text="更换网盘同步目录时请用“迁移仓库到新目录…”：会把全部历史版本复制并校验到新目录后自动切换绑定。直接“绑定”到另一个目录会连接到空仓库，导致历史版本丢失。"/>
                 </StackPanel>
             </GroupBox>
 
