@@ -49,10 +49,23 @@ public partial class AddGameWindow : Window
             PathBox.Text = dialog.FolderName;
     }
 
+    private void BrowseExe_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "选择游戏可执行文件",
+            Filter = "可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*",
+            CheckFileExists = true,
+        };
+        if (dialog.ShowDialog(this) == true)
+            ExeBox.Text = dialog.FileName;
+    }
+
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
         var name = NameBox.Text.Trim();
         var savePath = PathBox.Text.Trim();
+        var exePath = ExeBox.Text.Trim();
 
         if (name.Length == 0)
         {
@@ -65,6 +78,13 @@ public partial class AddGameWindow : Window
             MessageBox.Show(this, "存档目录不存在，请通过“浏览…”选择或输入有效目录。",
                 Title, MessageBoxButton.OK, MessageBoxImage.Warning);
             PathBox.Focus();
+            return;
+        }
+        if (exePath.Length > 0 && !File.Exists(exePath))
+        {
+            MessageBox.Show(this, "游戏程序文件不存在，请通过“浏览…”重新选择，或留空跳过。",
+                Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            ExeBox.Focus();
             return;
         }
 
@@ -86,7 +106,15 @@ public partial class AddGameWindow : Window
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        Result = new AddGameResult(sharedGameId, name, savePath, processNames);
+        // 未填进程名但选了 exe 时，用 exe 文件名作为默认进程名，便于状态检测与停止
+        if (processNames.Count == 0 && exePath.Length > 0)
+        {
+            var exeName = Path.GetFileNameWithoutExtension(exePath);
+            if (!string.IsNullOrWhiteSpace(exeName))
+                processNames.Add(exeName);
+        }
+
+        Result = new AddGameResult(sharedGameId, name, savePath, processNames, exePath);
         DialogResult = true;
     }
 }

@@ -18,17 +18,19 @@ public sealed class GameRepository
         {
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = """
-                INSERT INTO Games (GameId, Name, ProcessNames, AutoBackup, AutoRestore, CreatedAt)
-                VALUES ($id, $name, $procs, $autoB, $autoR, $created)
+                INSERT INTO Games (GameId, Name, ProcessNames, ExecutablePath, AutoBackup, AutoRestore, CreatedAt)
+                VALUES ($id, $name, $procs, $exe, $autoB, $autoR, $created)
                 ON CONFLICT(GameId) DO UPDATE SET
                     Name = excluded.Name,
                     ProcessNames = excluded.ProcessNames,
+                    ExecutablePath = excluded.ExecutablePath,
                     AutoBackup = excluded.AutoBackup,
                     AutoRestore = excluded.AutoRestore
                 """;
             cmd.Parameters.AddWithValue("$id", config.GameId);
             cmd.Parameters.AddWithValue("$name", config.Name);
             cmd.Parameters.AddWithValue("$procs", string.Join(';', config.ProcessNames));
+            cmd.Parameters.AddWithValue("$exe", config.ExecutablePath ?? string.Empty);
             cmd.Parameters.AddWithValue("$autoB", config.AutoBackup ? 1 : 0);
             cmd.Parameters.AddWithValue("$autoR", config.AutoRestore ? 1 : 0);
             cmd.Parameters.AddWithValue("$created", UtcClock.Now());
@@ -49,7 +51,7 @@ public sealed class GameRepository
         {
             var list = new List<LocalGameConfig>();
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT GameId, Name, ProcessNames, AutoBackup, AutoRestore FROM Games ORDER BY Name";
+            cmd.CommandText = "SELECT GameId, Name, ProcessNames, AutoBackup, AutoRestore, ExecutablePath FROM Games ORDER BY Name";
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
@@ -62,6 +64,7 @@ public sealed class GameRepository
                         .ToList(),
                     AutoBackup = reader.GetInt64(3) != 0,
                     AutoRestore = reader.GetInt64(4) != 0,
+                    ExecutablePath = reader.GetString(5),
                 });
             }
             return (IReadOnlyList<LocalGameConfig>)list;
@@ -71,7 +74,7 @@ public sealed class GameRepository
         => _db.ExecuteAsync(async conn =>
         {
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT GameId, Name, ProcessNames, AutoBackup, AutoRestore FROM Games WHERE GameId = $id";
+            cmd.CommandText = "SELECT GameId, Name, ProcessNames, AutoBackup, AutoRestore, ExecutablePath FROM Games WHERE GameId = $id";
             cmd.Parameters.AddWithValue("$id", gameId);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             if (!await reader.ReadAsync(ct))
@@ -85,6 +88,7 @@ public sealed class GameRepository
                     .ToList(),
                 AutoBackup = reader.GetInt64(3) != 0,
                 AutoRestore = reader.GetInt64(4) != 0,
+                ExecutablePath = reader.GetString(5),
             };
         }, ct);
 

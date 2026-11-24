@@ -1,17 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.Input;
 using GameSaveSync.Core.Models;
 using GameSaveSync.Desktop.Services;
 using GameSaveSync.Sync;
+using Serilog;
 
 namespace GameSaveSync.Desktop.ViewModels;
 
 /// <summary>
-/// 游戏页：本机游戏列表、添加游戏、从仓库绑定已有游戏（T17）、删除游戏。
+/// 游戏页：本机游戏列表、添加游戏、从仓库绑定已有游戏（T17）、删除游戏，
+/// 以及启动 / 停止游戏与运行状态显示。
 /// </summary>
 public sealed partial class GamesViewModel : ViewModelBase
 {
@@ -31,6 +34,24 @@ public sealed partial class GamesViewModel : ViewModelBase
     {
         _appService = appService;
         _monitor = monitor;
+        // 轮询线程触发状态变化 → 切回 UI 线程更新行状态
+        _monitor.GameStateChanged += OnGameStateChanged;
+    }
+
+    private void OnGameStateChanged(string gameId, bool isRunning)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+            ApplyState(gameId, isRunning);
+        else
+            dispatcher.BeginInvoke(() => ApplyState(gameId, isRunning));
+    }
+
+    private void ApplyState(string gameId, bool isRunning)
+    {
+        var row = Games.FirstOrDefault(r => r.GameId == gameId);
+        if (row is not null)
+            row.IsRunning = isRunning;
     }
 
     [RelayCommand]
@@ -50,6 +71,16 @@ public sealed partial class GamesViewModel : ViewModelBase
         // 进程监控使用最新配置（游戏退出自动备份）
         _monitor.UpdateGames(games);
         GamesChanged?.Invoke();
+
+        // 立即刷新一次运行状态（不必等 5 秒轮询）
+        try
+        {
+            await _monitor.RefreshStatesAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "刷新游戏运行状态失败。");
+        }
     }
 
     [RelayCommand]
@@ -60,7 +91,8 @@ public sealed partial class GamesViewModel : ViewModelBase
             return;
 
         var ok = await RunBusyAsync(
-            () => _appService.CreateNewGameAsync(input.Name, input.SavePath, input.ProcessNames),
+            () => _appService.CreateNewGameAsync(
+                input.Name, input.SavePath, input.ProcessNames, input.ExecutablePath),
             $"正在添加游戏「{input.Name}」…");
         if (ok)
         {
@@ -90,7 +122,8 @@ public sealed partial class GamesViewModel : ViewModelBase
             return;
 
         ok = await RunBusyAsync(
-            () => _appService.BindExistingGameAsync(input.SharedGameId, input.Name, input.SavePath, input.ProcessNames),
+            () => _appService.BindExistingGameAsync(
+                input.SharedGameId, input.Name, input.SavePath, input.ProcessNames, input.ExecutablePath),
             $"正在绑定游戏「{input.Name}」…");
         if (ok)
         {
@@ -104,6 +137,11 @@ public sealed partial class GamesViewModel : ViewModelBase
     {
         if (row is null)
             return;
+        if (row.IsRunning)
+        {
+            Dialog.Info($"游戏「{row.Name}」正在运行，请先停止后再删除。");
+            return;
+        }
         if (!Dialog.Confirm(
                 $"确定删除游戏「{row.Name}」吗？\n仅移除本机配置，不影响共享仓库中的数据。",
                 "删除游戏"))
@@ -116,6 +154,105 @@ public sealed partial class GamesViewModel : ViewModelBase
         {
             Dialog.Info($"游戏「{row.Name}」已删除。");
             await LoadGamesAsync();
+        }
+    }
+
+    /// <summary>启动游戏：校验可执行文件后由系统 Shell 启动进程。</summary>
+    [RelayCommand]
+    private async Task LaunchGameAsync(GameRowViewModel? row)
+    {
+        if (row is null)
+            return;
+        if (row.IsRunning)
+        {
+            Dialog.Info($"游戏「{row.Name}」已在运行中。");
+            return;
+        }
+        if (!row.CanLaunch)
+        {
+            Dialog.Info("该游戏尚未配置可执行文件，请先编辑游戏设置指定游戏 exe。");
+            return;
+        }
+
+        var ok = await RunBusyAsync(
+            () =>
+            {
+                _monitor.LaunchGame(row.Config.ExecutablePath);
+                return Task.CompletedTask;
+            },
+            $"正在启动游戏「{row.Name}」…");
+        if (!ok)
+            return;
+
+        StatusText = $"已启动「{row.Name}」，等待进程状态刷新…";
+        // 启动后稍等再刷新状态，让进程真正起来
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        try
+        {
+            await _monitor.RefreshStatesAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "刷新游戏运行状态失败。");
+        }
+        ApplyState(row.GameId, _monitor.GetRunningState(row.GameId));
+    }
+
+    /// <summary>停止游戏：按进程名优雅关闭，超时强制结束。</summary>
+    [RelayCommand]
+    private async Task StopGameAsync(GameRowViewModel? row)
+    {
+        if (row is null)
+            return;
+        if (row.Config.ProcessNames.Count == 0)
+        {
+            Dialog.Info("该游戏未配置进程名，无法自动停止。请先编辑游戏设置填写进程名。");
+            return;
+        }
+        if (!Dialog.Confirm($"确定停止游戏「{row.Name}」吗？\n未保存的游戏进度可能丢失。", "停止游戏"))
+            return;
+
+        var stopped = 0;
+        var ok = await RunBusyAsync(
+            () =>
+            {
+                stopped = _monitor.StopGame(row.Config.ProcessNames);
+                return Task.CompletedTask;
+            },
+            $"正在停止游戏「{row.Name}」…");
+        if (!ok)
+            return;
+
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        try
+        {
+            await _monitor.RefreshStatesAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "刷新游戏运行状态失败。");
+        }
+        ApplyState(row.GameId, _monitor.GetRunningState(row.GameId));
+
+        if (stopped == 0)
+            Dialog.Info("未找到正在运行的游戏进程（可能已退出）。");
+        else
+            StatusText = $"已停止「{row.Name}」（{stopped} 个进程）。";
+    }
+
+    /// <summary>刷新运行状态（手动触发一次轮询检查）。</summary>
+    [RelayCommand]
+    private async Task RefreshStatusAsync()
+    {
+        try
+        {
+            await _monitor.RefreshStatesAsync();
+            StatusText = "运行状态已刷新。";
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "刷新游戏运行状态失败。");
+            StatusText = $"刷新失败：{ex.Message}";
         }
     }
 }

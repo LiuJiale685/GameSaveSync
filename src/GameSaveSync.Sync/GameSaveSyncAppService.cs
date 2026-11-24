@@ -131,6 +131,7 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
     public async Task<LocalGameConfig> CreateNewGameAsync(
         string name, string savePath,
         IReadOnlyList<string>? processNames = null,
+        string? executablePath = null,
         CancellationToken ct = default)
     {
         EnsureRepoBound();
@@ -143,6 +144,7 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
             Name = name,
             SavePath = savePath,
             ProcessNames = processNames?.ToList() ?? new List<string>(),
+            ExecutablePath = executablePath ?? string.Empty,
         };
         await _gameRepo.AddOrUpdateGameAsync(config, ct).ConfigureAwait(false);
         await _gameRepo.SetSavePathAsync(gameId, Device.DeviceId, savePath, ct).ConfigureAwait(false);
@@ -160,6 +162,7 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
     public async Task<LocalGameConfig> BindExistingGameAsync(
         string sharedGameId, string localName, string savePath,
         IReadOnlyList<string>? processNames = null,
+        string? executablePath = null,
         CancellationToken ct = default)
     {
         EnsureRepoBound();
@@ -172,6 +175,7 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
             Name = localName.Length > 0 ? localName : shared.Name,
             SavePath = savePath,
             ProcessNames = processNames?.ToList() ?? new List<string>(),
+            ExecutablePath = executablePath ?? string.Empty,
         };
         await _gameRepo.AddOrUpdateGameAsync(config, ct).ConfigureAwait(false);
         await _gameRepo.SetSavePathAsync(sharedGameId, Device.DeviceId, savePath, ct).ConfigureAwait(false);
@@ -180,6 +184,10 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
 
     public Task<IReadOnlyList<LocalGameConfig>> ListGamesAsync(CancellationToken ct = default)
         => _gameRepo.ListGamesAsync(ct);
+
+    /// <summary>更新本机游戏配置（名称、进程名、可执行文件、自动化策略）。</summary>
+    public Task UpdateGameAsync(LocalGameConfig config, CancellationToken ct = default)
+        => _gameRepo.AddOrUpdateGameAsync(config, ct);
 
     public Task RemoveGameAsync(string gameId, CancellationToken ct = default)
         => _gameRepo.RemoveGameAsync(gameId, ct);

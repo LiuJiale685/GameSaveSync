@@ -29,6 +29,7 @@ public static class Schema
             GameId TEXT PRIMARY KEY,
             Name TEXT NOT NULL,
             ProcessNames TEXT NOT NULL DEFAULT '',
+            ExecutablePath TEXT NOT NULL DEFAULT '',
             AutoBackup INTEGER NOT NULL DEFAULT 1,
             AutoRestore INTEGER NOT NULL DEFAULT 1,
             CreatedAt TEXT NOT NULL
@@ -128,6 +129,10 @@ public static class Schema
             await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
+        await EnsureColumnAsync(connection, "Games", "ExecutablePath",
+            "ALTER TABLE Games ADD COLUMN ExecutablePath TEXT NOT NULL DEFAULT ''", cancellationToken)
+            .ConfigureAwait(false);
+
         await using var versionCmd = connection.CreateCommand();
         versionCmd.CommandText = "SELECT Value FROM Meta WHERE Key = 'schemaVersion'";
         var existing = await versionCmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
@@ -138,6 +143,23 @@ public static class Schema
             insert.Parameters.AddWithValue("$v", CurrentVersion.ToString());
             await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>旧库增量迁移：列不存在时执行 ALTER TABLE（已存在则忽略）。</summary>
+    private static async Task EnsureColumnAsync(
+        SqliteConnection connection, string table, string column, string alterSql,
+        CancellationToken cancellationToken)
+    {
+        await using var check = connection.CreateCommand();
+        check.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = $col";
+        check.Parameters.AddWithValue("$col", column);
+        var count = Convert.ToInt64(await check.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+        if (count > 0)
+            return;
+
+        await using var alter = connection.CreateCommand();
+        alter.CommandText = alterSql;
+        await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 }
 

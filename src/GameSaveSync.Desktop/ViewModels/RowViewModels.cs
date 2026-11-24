@@ -1,10 +1,11 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using GameSaveSync.Core.Models;
 using GameSaveSync.Data.Repositories;
 
 namespace GameSaveSync.Desktop.ViewModels;
 
-/// <summary>游戏列表行（名称、存档路径、进程名）。</summary>
-public sealed class GameRowViewModel
+/// <summary>游戏列表行（名称、存档路径、进程名、运行状态）。</summary>
+public sealed partial class GameRowViewModel : ObservableObject
 {
     public LocalGameConfig Config { get; }
 
@@ -18,7 +19,29 @@ public sealed class GameRowViewModel
         ? "（未配置）"
         : string.Join(", ", Config.ProcessNames);
 
-    public GameRowViewModel(LocalGameConfig config) => Config = config;
+    /// <summary>是否已配置可执行文件（决定“启动游戏”是否可用）。</summary>
+    public bool CanLaunch => !string.IsNullOrWhiteSpace(Config.ExecutablePath);
+
+    public string ExecutablePathText => CanLaunch ? Config.ExecutablePath : "（未配置）";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(CanStop))]
+    [NotifyPropertyChangedFor(nameof(StatusBrush))]
+    private bool _isRunning;
+
+    public string StatusText => IsRunning ? "运行中" : "已停止";
+
+    /// <summary>可停止：正在运行且配置了进程名。</summary>
+    public bool CanStop => IsRunning && Config.ProcessNames.Count > 0;
+
+    public string StatusBrush => IsRunning ? "#2E7D32" : "#9E9E9E";
+
+    public GameRowViewModel(LocalGameConfig config, bool isRunning = false)
+    {
+        Config = config;
+        _isRunning = isRunning;
+    }
 }
 
 /// <summary>游戏下拉选择项（版本历史页 / 同步状态页共用）。</summary>

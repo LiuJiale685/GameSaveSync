@@ -16,6 +16,9 @@ public sealed class LocalGameConfig
     /// <summary>可选进程名列表，用于判断游戏是否运行。</summary>
     public List<string> ProcessNames { get; set; } = new();
 
+    /// <summary>游戏可执行文件完整路径（设备本地配置，用于启动游戏；空串表示未配置）。</summary>
+    public string ExecutablePath { get; set; } = string.Empty;
+
     public bool AutoBackup { get; set; } = true;
 
     public bool AutoRestore { get; set; } = true;

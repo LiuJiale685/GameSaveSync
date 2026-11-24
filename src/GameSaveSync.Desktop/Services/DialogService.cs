@@ -12,11 +12,13 @@ namespace GameSaveSync.Desktop.Services;
 /// <param name="Name">本机显示名称。</param>
 /// <param name="SavePath">本机存档目录（已校验存在）。</param>
 /// <param name="ProcessNames">可选进程名列表（已去除 .exe 后缀、去重）。</param>
+/// <param name="ExecutablePath">可选游戏可执行文件路径（空字符串表示未配置）。</param>
 public sealed record AddGameResult(
     string SharedGameId,
     string Name,
     string SavePath,
-    IReadOnlyList<string> ProcessNames);
+    IReadOnlyList<string> ProcessNames,
+    string ExecutablePath);
 
 /// <summary>UI 对话框入口（确认 / 提示 / 错误 / 选择目录 / 添加游戏 / 选择列表项 / 查看清单）。</summary>
 public interface IDialogService
