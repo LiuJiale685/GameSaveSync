@@ -27,6 +27,8 @@ VersionInfoCopyright={#AppCopyright}
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
+; 始终显示“选择目标位置”页（默认 auto 会在检测到已安装时隐藏该页，导致无法改路径）
+DisableDirPage=no
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExeName}
 UninstallDisplayName={#AppName}
