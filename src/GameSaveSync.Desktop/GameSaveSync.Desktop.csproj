@@ -7,8 +7,27 @@
     <LangVersion>latest</LangVersion>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon />
+    <ApplicationIcon Condition="Exists('..\..\GameSaveSync.ico')">..\..\GameSaveSync.ico</ApplicationIcon>
     <AssemblyName>GameSaveSync</AssemblyName>
+
+    <!-- 程序集与文件版本信息（资源管理器属性、自动更新比对使用） -->
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Company>GameSaveSync</Company>
+    <Product>GameSaveSync</Product>
+    <AssemblyTitle>GameSaveSync</AssemblyTitle>
+    <Description>本地单机游戏存档同步工具</Description>
+    <Copyright>Copyright © 2026 GameSaveSync</Copyright>
+
+    <!-- 发布默认值：自包含（目标机器无需安装 .NET）。
+         注意：不要启用 PublishSingleFile —— WPF + 自包含单文件在本项目实测会启动即静默退出；
+         WPF 对 IL 裁剪支持也不完善，故显式关闭 Trim 与 ReadyToRun。 -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
     <!-- 启用 .NET 10 WPF 内置 Fluent 深浅色主题（Application.ThemeMode 仍标记为实验性）。 -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>

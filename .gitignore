@@ -27,6 +27,8 @@ packages/
 ## Publish output
 publish/
 [Pp]ublish[Oo]utput/
+tmp/
+dist/
 
 ## Rider / VS Code / Trae
 .idea/
