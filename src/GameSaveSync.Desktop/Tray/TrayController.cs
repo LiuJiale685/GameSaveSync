@@ -1,6 +1,4 @@
 using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Windows;
 using System.Windows.Controls;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -9,7 +7,7 @@ using Serilog;
 namespace GameSaveSync.Desktop.Tray;
 
 /// <summary>
-/// 系统托盘（Hardcodet TaskbarIcon）：图标用代码绘制（无需外部资源），
+/// 系统托盘（Hardcodet TaskbarIcon）：图标取自应用图标资源 Assets/GameSaveSync.ico，
 /// 右键菜单：显示主窗口 / 退出；点 X 只是隐藏到托盘，真正退出走托盘菜单。
 /// </summary>
 public sealed class TrayController : IDisposable
@@ -34,7 +32,7 @@ public sealed class TrayController : IDisposable
         {
             ToolTipText = "GameSaveSync — 游戏存档同步",
             ContextMenu = menu,
-            Icon = CreateIcon(),
+            Icon = LoadIcon(),
         };
         _icon.TrayLeftMouseUp += (_, _) => ShowMainWindow();
     }
@@ -54,24 +52,15 @@ public sealed class TrayController : IDisposable
         Application.Current.Shutdown();
     }
 
-    /// <summary>用代码画一个简单的托盘图标（蓝色方块 + 白色“GS”）。</summary>
-    private static Icon CreateIcon()
+    /// <summary>从应用资源加载托盘图标（Assets/GameSaveSync.ico，ICO 内含多种尺寸）。</summary>
+    private static System.Drawing.Icon LoadIcon()
     {
-        const int size = 32;
-        using var bitmap = new Bitmap(size, size);
-        using (var graphics = Graphics.FromImage(bitmap))
-        {
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var background = new SolidBrush(Color.FromArgb(0x2B, 0x57, 0x9A));
-            graphics.FillRectangle(background, 0, 0, size, size);
-            using var font = new Font("Segoe UI", 13f, System.Drawing.FontStyle.Bold);
-            using var foreground = new SolidBrush(Color.White);
-            var textSize = graphics.MeasureString("GS", font);
-            graphics.DrawString(
-                "GS", font, foreground,
-                (size - textSize.Width) / 2f, (size - textSize.Height) / 2f);
-        }
-        return Icon.FromHandle(bitmap.GetHicon());
+        var resource = Application.GetResourceStream(
+            new Uri("pack://application:,,,/Assets/GameSaveSync.ico"));
+        if (resource is null)
+            throw new InvalidOperationException("未找到图标资源 Assets/GameSaveSync.ico。");
+        using var stream = resource.Stream;
+        return new System.Drawing.Icon(stream);
     }
 
     public void Dispose()

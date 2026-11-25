@@ -8,6 +8,8 @@
 #define AppExeName "GameSaveSync.exe"
 ; 发布产物目录（由 build-installer.ps1 生成，相对本脚本）
 #define PublishDir "..\tmp\publish"
+; 应用图标（与主程序 exe 图标同源，位于 Desktop 项目的 Assets 目录）
+#define AppIconFile "..\src\GameSaveSync.Desktop\Assets\GameSaveSync.ico"
 
 [Setup]
 AppId={{8A3F6C21-5B4D-4E97-9C1A-7D2E4F8B0A63}
@@ -27,10 +29,8 @@ UninstallDisplayIcon={app}\{#AppExeName}
 UninstallDisplayName={#AppName}
 OutputDir=..\dist
 OutputBaseFilename={#AppName}-{#AppVersion}-win-x64-setup
-; 图标文件未纳入版本库，仅在本地存在时使用（缺失时安装包用默认图标）
-#if FileExists(AddBackslash(SourcePath) + "..\GameSaveSync.ico")
-SetupIconFile=..\GameSaveSync.ico
-#endif
+; 安装包与卸载程序图标统一使用应用图标
+SetupIconFile={#AppIconFile}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern

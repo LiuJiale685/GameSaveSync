@@ -7,7 +7,7 @@
     <LangVersion>latest</LangVersion>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon Condition="Exists('..\..\GameSaveSync.ico')">..\..\GameSaveSync.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\GameSaveSync.ico</ApplicationIcon>
     <AssemblyName>GameSaveSync</AssemblyName>
 
     <!-- 程序集与文件版本信息（资源管理器属性、自动更新比对使用） -->
@@ -31,6 +31,10 @@
     <!-- 启用 .NET 10 WPF 内置 Fluent 深浅色主题（Application.ThemeMode 仍标记为实验性）。 -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- 应用图标资源：exe 图标由 ApplicationIcon 嵌入，窗口/托盘/安装包复用同一文件 -->
+    <Resource Include="Assets\GameSaveSync.ico" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GameSaveSync.Core\GameSaveSync.Core.csproj" />
     <ProjectReference Include="..\GameSaveSync.Storage\GameSaveSync.Storage.csproj" />
