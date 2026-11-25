@@ -1,3 +1,4 @@
+// GameSaveSync | By Jiale | Copyright (c) 2026 Jiale
 using System;
 using System.Windows;
 using System.Windows.Controls;
@@ -30,7 +31,7 @@ public sealed class TrayController : IDisposable
 
         _icon = new TaskbarIcon
         {
-            ToolTipText = "GameSaveSync — 游戏存档同步",
+            ToolTipText = "GameSaveSync — 游戏存档同步（By Jiale）",
             ContextMenu = menu,
             Icon = LoadIcon(),
         };

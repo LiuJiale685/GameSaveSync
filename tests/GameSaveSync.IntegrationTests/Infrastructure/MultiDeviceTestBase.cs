@@ -1,3 +1,4 @@
+// GameSaveSync | By Jiale | Copyright (c) 2026 Jiale
 using System.Security.Cryptography;
 using System.Text;
 using GameSaveSync.Core.Interfaces;

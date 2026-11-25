@@ -1,3 +1,4 @@
+// GameSaveSync | By Jiale | Copyright (c) 2026 Jiale
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using GameSaveSync.Core.Models;

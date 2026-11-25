@@ -1,4 +1,5 @@
-﻿<UserControl x:Class="GameSaveSync.Desktop.Views.VersionsView"
+﻿<!-- GameSaveSync | By Jiale | Copyright (c) 2026 Jiale -->
+<UserControl x:Class="GameSaveSync.Desktop.Views.VersionsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>

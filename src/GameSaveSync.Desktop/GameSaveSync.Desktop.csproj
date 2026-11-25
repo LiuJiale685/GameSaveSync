@@ -14,11 +14,12 @@
     <Version>1.0.0</Version>
     <FileVersion>1.0.0.0</FileVersion>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <Company>GameSaveSync</Company>
+    <Company>Jiale</Company>
+    <Authors>Jiale</Authors>
     <Product>GameSaveSync</Product>
-    <AssemblyTitle>GameSaveSync</AssemblyTitle>
-    <Description>本地单机游戏存档同步工具</Description>
-    <Copyright>Copyright © 2026 GameSaveSync</Copyright>
+    <AssemblyTitle>GameSaveSync (By Jiale)</AssemblyTitle>
+    <Description>本地单机游戏存档同步工具 — By Jiale</Description>
+    <Copyright>Copyright © 2026 Jiale</Copyright>
 
     <!-- 发布默认值：自包含（目标机器无需安装 .NET）。
          注意：不要启用 PublishSingleFile —— WPF + 自包含单文件在本项目实测会启动即静默退出；

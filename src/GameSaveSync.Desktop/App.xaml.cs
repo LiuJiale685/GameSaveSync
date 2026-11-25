@@ -1,3 +1,4 @@
+// GameSaveSync | By Jiale | Copyright (c) 2026 Jiale
 using System;
 using System.IO;
 using System.Security.Cryptography;
@@ -152,7 +153,7 @@ public partial class App : Application
                 retainedFileCountLimit: 31,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
-        Log.Information("========== GameSaveSync 启动 ==========");
+        Log.Information("========== GameSaveSync 启动（By Jiale） ==========");
     }
 
     private void HookGlobalExceptions()

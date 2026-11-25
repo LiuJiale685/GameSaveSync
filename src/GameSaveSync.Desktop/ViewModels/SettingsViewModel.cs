@@ -1,3 +1,4 @@
+// GameSaveSync | By Jiale | Copyright (c) 2026 Jiale
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -30,6 +31,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     // ---- 开机自启动 ----
     [ObservableProperty] private bool _autoStartEnabled;
+
+    /// <summary>版本信息（“关于”卡片展示，By Jiale）。</summary>
+    public string AppVersionDisplay { get; } =
+        $"GameSaveSync v{typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"}";
 
     // ---- 外观 ----
     /// <summary>主题选项（跟随系统 / 浅色 / 深色）。</summary>

@@ -1,10 +1,11 @@
-; GameSaveSync 安装包脚本（Inno Setup 6）
+; GameSaveSync 安装包脚本（Inno Setup 6）| By Jiale
 ; 用法：先执行 installer\build-installer.ps1（会自动发布并调用本脚本），
 ; 或手动：ISCC.exe installer\GameSaveSync.iss
 
 #define AppName "GameSaveSync"
 #define AppVersion "1.0.0"
-#define AppPublisher "GameSaveSync"
+#define AppPublisher "Jiale"
+#define AppCopyright "Copyright (c) 2026 Jiale. All rights reserved."
 #define AppExeName "GameSaveSync.exe"
 ; 发布产物目录（由 build-installer.ps1 生成，相对本脚本）
 #define PublishDir "..\tmp\publish"
@@ -17,9 +18,11 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
+AppCopyright={#AppCopyright}
 VersionInfoVersion={#AppVersion}
 VersionInfoProductName={#AppName}
 VersionInfoCompany={#AppPublisher}
+VersionInfoCopyright={#AppCopyright}
 ; 按用户安装，无需管理员权限（数据写 %LOCALAPPDATA%）
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\{#AppName}

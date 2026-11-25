@@ -1,3 +1,4 @@
+<!-- GameSaveSync | By Jiale | Copyright (c) 2026 Jiale -->
 <Window x:Class="GameSaveSync.Desktop.Views.Dialogs.AddGameWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

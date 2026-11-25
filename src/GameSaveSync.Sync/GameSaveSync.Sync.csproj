@@ -4,6 +4,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <Company>Jiale</Company>
+    <Authors>Jiale</Authors>
+    <Product>GameSaveSync</Product>
+    <Description>GameSaveSync 业务门面 — By Jiale</Description>
+    <Copyright>Copyright © 2026 Jiale</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\GameSaveSync.Core\GameSaveSync.Core.csproj" />

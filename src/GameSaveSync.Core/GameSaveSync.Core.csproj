@@ -4,5 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <Company>Jiale</Company>
+    <Authors>Jiale</Authors>
+    <Product>GameSaveSync</Product>
+    <Description>GameSaveSync 协议与领域模型 — By Jiale</Description>
+    <Copyright>Copyright © 2026 Jiale</Copyright>
   </PropertyGroup>
 </Project>

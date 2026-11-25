@@ -1,3 +1,4 @@
+// GameSaveSync | By Jiale | Copyright (c) 2026 Jiale
 using GameSaveSync.Core.Models;
 using GameSaveSync.Core.Services;
 using Xunit;

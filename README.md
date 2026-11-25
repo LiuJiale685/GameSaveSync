@@ -1,5 +1,7 @@
 # GameSaveSync — 本地单机游戏存档同步工具
 
+> **By Jiale** · Copyright © 2026 Jiale. All rights reserved.
+
 为单机游戏提供 **Steam 云存档式** 的多设备同步与版本管理：通过用户自选网盘（百度网盘等）的**双向同步目录**交换数据，不依赖任何自建服务器。核心原则：**绝不静默覆盖用户存档**。
 
 ## 功能特性
@@ -83,3 +85,7 @@ GameSaveSync/
 存档目录 → 稳定快照（SHA256）→ 缺失对象写入 `objects/` → 确定性 Manifest → 校验依赖完整 → 最后发布不可变 Commit。多设备通过扫描仓库内全部 Commit 计算 Head（无共享 current 指针），单一 Head 且本地无修改时自动快进应用，多 Head 即冲突交由用户处理。
 
 详见 [项目 Wiki](docs/WIKI.md) 与 [开发进展与后续工作](docs/ROADMAP.md)。
+
+---
+
+© 2026 Jiale — Built and maintained by Jiale.

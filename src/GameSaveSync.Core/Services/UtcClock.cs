@@ -1,3 +1,4 @@
+// GameSaveSync | By Jiale | Copyright (c) 2026 Jiale
 using System.Globalization;
 
 namespace GameSaveSync.Core.Services;
