@@ -8,7 +8,7 @@ namespace GameSaveSync.Data;
 /// </summary>
 public static class Schema
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     private static readonly string[] Statements =
     {
@@ -119,6 +119,19 @@ public static class Schema
             UpdatedAt TEXT NOT NULL
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS PlaySessions (
+            SessionId TEXT PRIMARY KEY NOT NULL,
+            GameId TEXT NOT NULL,
+            StartedAt TEXT NOT NULL,
+            EndedAt TEXT,
+            LastSeenAt TEXT NOT NULL,
+            EndReason INTEGER NOT NULL DEFAULT 0,
+            DurationSeconds INTEGER NOT NULL DEFAULT 0
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS IX_PlaySessions_Game ON PlaySessions(GameId)",
+        "CREATE INDEX IF NOT EXISTS IX_PlaySessions_Started ON PlaySessions(StartedAt)",
     };
 
     public static async Task CreateAsync(SqliteConnection connection, CancellationToken cancellationToken)
@@ -148,6 +161,14 @@ public static class Schema
             insert.CommandText = "INSERT INTO Meta (Key, Value) VALUES ('schemaVersion', $v)";
             insert.Parameters.AddWithValue("$v", CurrentVersion.ToString());
             await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else if (existing.ToString() != CurrentVersion.ToString())
+        {
+            // 旧库升级：表结构已通过上面的 CREATE TABLE IF NOT EXISTS 幂等补齐。
+            await using var update = connection.CreateCommand();
+            update.CommandText = "UPDATE Meta SET Value = $v WHERE Key = 'schemaVersion'";
+            update.Parameters.AddWithValue("$v", CurrentVersion.ToString());
+            await update.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -184,4 +205,20 @@ public enum ConflictStatusValue
     Open = 0,
     Resolved = 1,
     Ignored = 2,
+}
+
+/// <summary>游戏会话结束原因（PlaySessions.EndReason）。</summary>
+public enum PlaySessionEndReason
+{
+    /// <summary>进行中（EndedAt 为 NULL）。</summary>
+    Running = 0,
+
+    /// <summary>正常退出（监控检测到进程退出）。</summary>
+    NormalExit = 1,
+
+    /// <summary>App 退出时游戏仍在运行。</summary>
+    AppClosed = 2,
+
+    /// <summary>崩溃 / 断电中断（启动时孤儿收尾）。</summary>
+    Interrupted = 3,
 }

@@ -28,6 +28,9 @@ public interface IDialogService
     void Info(string message, string title = "GameSaveSync");
     void Error(string message, string title = "GameSaveSync");
     string? PickFolder(string title);
+
+    /// <summary>另存文件对话框；返回选中路径，取消返回 null。</summary>
+    string? PickSaveFile(string title, string filter, string defaultFileName);
     AddGameResult? ShowAddGameDialog(bool bindFromRepo, IReadOnlyList<SharedGameInfo> repoGames);
 
     /// <summary>编辑已有游戏配置（名称、存档目录、进程名、游戏程序）。</summary>
@@ -56,8 +59,20 @@ public sealed class DialogService : IDialogService
         return dialog.ShowDialog(Owner) == true ? dialog.FolderName : null;
     }
 
-    public AddGameResult? ShowAddGameDialog(bool bindFromRepo, IReadOnlyList<SharedGameInfo> repoGames)
+    public string? PickSaveFile(string title, string filter, string defaultFileName)
     {
+        var dialog = new SaveFileDialog
+        {
+            Title = title,
+            Filter = filter,
+            FileName = defaultFileName,
+            AddExtension = true,
+            OverwritePrompt = true,
+        };
+        return dialog.ShowDialog(Owner) == true ? dialog.FileName : null;
+    }
+
+    public AddGameResult? ShowAddGameDialog(bool bindFromRepo, IReadOnlyList<SharedGameInfo> repoGames)    {
         var window = new AddGameWindow(bindFromRepo, repoGames) { Owner = Owner };
         return window.ShowDialog() == true ? window.Result : null;
     }

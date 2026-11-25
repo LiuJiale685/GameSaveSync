@@ -8,6 +8,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GameSaveSync.Core.Models;
+using GameSaveSync.Data.Repositories;
 using GameSaveSync.Desktop.Services;
 using GameSaveSync.Sync;
 using Serilog;
@@ -32,6 +33,18 @@ public sealed partial class GamesViewModel : ViewModelBase
     private bool _showHidden;
 
     partial void OnShowHiddenChanged(bool value) => RebuildRows();
+
+    /// <summary>当前选中的游戏行（右侧/下方展示其最近会话明细）。</summary>
+    [ObservableProperty]
+    private GameRowViewModel? _selectedGame;
+
+    partial void OnSelectedGameChanged(GameRowViewModel? value) => _ = LoadSelectedSessionsAsync(value);
+
+    /// <summary>选中游戏的最近会话明细。</summary>
+    public ObservableCollection<PlaySessionRowViewModel> RecentSessions { get; } = new();
+
+    [ObservableProperty]
+    private string _selectedSessionsHint = "选择游戏可查看最近游戏记录。";
 
     /// <summary>游戏增删后触发（供其它页签联动刷新游戏选择器、进程监控）。</summary>
     public event Action? GamesChanged;
@@ -60,13 +73,21 @@ public sealed partial class GamesViewModel : ViewModelBase
     private void ApplyState(string gameId, bool isRunning)
     {
         var row = Games.FirstOrDefault(r => r.GameId == gameId);
-        if (row is not null)
-            row.IsRunning = isRunning;
+        if (row is null)
+            return;
+
+        var wasRunning = row.IsRunning;
+        row.IsRunning = isRunning;
+
+        // 游戏退出：会话已在监控回调中收尾，刷新该游戏的时长统计
+        if (wasRunning && !isRunning)
+            _ = RefreshPlaytimeAsync(row);
     }
 
     /// <summary>按“是否显示已隐藏”过滤后重建列表行（保留已知运行状态）。</summary>
     private void RebuildRows()
     {
+        var previousSelectionId = SelectedGame?.GameId;
         Games.Clear();
         foreach (var game in _allGames)
         {
@@ -74,6 +95,82 @@ public sealed partial class GamesViewModel : ViewModelBase
                 continue;
             Games.Add(new GameRowViewModel(game, _monitor.GetRunningState(game.GameId)));
         }
+        if (previousSelectionId is not null)
+            SelectedGame = Games.FirstOrDefault(r => r.GameId == previousSelectionId);
+
+        _ = LoadAllPlaytimesAsync();
+    }
+
+    /// <summary>为全部列表行加载时长统计（不阻塞 UI）。</summary>
+    private async Task LoadAllPlaytimesAsync()
+    {
+        var rows = Games.ToList();
+        foreach (var row in rows)
+        {
+            await RefreshPlaytimeAsync(row);
+        }
+    }
+
+    /// <summary>刷新单个游戏的时长统计。</summary>
+    private async Task RefreshPlaytimeAsync(GameRowViewModel row)
+    {
+        try
+        {
+            var stats = await _appService.GetGamePlayStatsAsync(row.GameId);
+            RunOnUiThread(() => row.ApplyPlayStats(stats));
+            if (ReferenceEquals(SelectedGame, row))
+                await LoadSelectedSessionsAsync(row);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "加载游戏 {GameId} 时长统计失败。", row.GameId);
+        }
+    }
+
+    /// <summary>在 UI 线程执行（可观察属性 / 集合必须在 UI 线程修改）。</summary>
+    private static void RunOnUiThread(Action action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+            action();
+        else
+            dispatcher.Invoke(action);
+    }
+
+    /// <summary>加载选中游戏的最近会话明细。</summary>
+    private async Task LoadSelectedSessionsAsync(GameRowViewModel? row)
+    {
+        if (row is null)
+        {
+            RunOnUiThread(() =>
+            {
+                RecentSessions.Clear();
+                SelectedSessionsHint = "选择游戏可查看最近游戏记录。";
+            });
+            return;
+        }
+
+        IReadOnlyList<PlaySessionRecord> sessions;
+        try
+        {
+            sessions = await _appService.GetRecentPlaySessionsAsync(row.GameId);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "加载游戏 {GameId} 会话明细失败。", row.GameId);
+            RunOnUiThread(() => SelectedSessionsHint = $"加载失败：{ex.Message}");
+            return;
+        }
+
+        RunOnUiThread(() =>
+        {
+            RecentSessions.Clear();
+            foreach (var s in sessions)
+                RecentSessions.Add(new PlaySessionRowViewModel(s));
+            SelectedSessionsHint = sessions.Count == 0
+                ? $"「{row.Name}」暂无已记录的运行会话（少于 1 分钟不计入统计）。"
+                : $"「{row.Name}」最近 {sessions.Count} 次游戏记录（少于 1 分钟的会话不计入统计）。";
+        });
     }
 
     [RelayCommand]
@@ -362,8 +459,23 @@ public sealed partial class GamesViewModel : ViewModelBase
             StatusText = $"已停止「{row.Name}」（{stopped} 个进程）。";
     }
 
-    /// <summary>刷新运行状态（手动触发一次轮询检查）。</summary>
+    /// <summary>导出全部游戏的时长与会话明细为 CSV。</summary>
     [RelayCommand]
+    private async Task ExportPlaytimeAsync()
+    {
+        var path = Dialog.PickSaveFile("导出游戏时长数据", "CSV 文件 (*.csv)|*.csv",
+            $"游戏时长_{DateTime.Now:yyyyMMdd}.csv");
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        var ok = await RunBusyAsync(
+            () => _appService.ExportPlaySessionsCsvAsync(path),
+            "正在导出游戏时长数据…");
+        if (ok)
+            Dialog.Info($"游戏时长数据已导出：\n{path}");
+    }
+
+    /// <summary>刷新运行状态（手动触发一次轮询检查）。</summary>    [RelayCommand]
     private async Task RefreshStatusAsync()
     {
         try

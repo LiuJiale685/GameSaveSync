@@ -34,4 +34,20 @@ public static class FormatUtil
         }
         return unit == 0 ? $"{bytes} B" : $"{value:F1} {units[unit]}";
     }
+
+    /// <summary>时长人性化显示（秒 → “1 小时 23 分”/“45 分”/“30 秒”）。</summary>
+    public static string FormatDuration(long seconds)
+    {
+        if (seconds < 0)
+            return "—";
+        if (seconds < 60)
+            return $"{seconds} 秒";
+
+        var totalMinutes = seconds / 60;
+        var hours = totalMinutes / 60;
+        var minutes = totalMinutes % 60;
+        if (hours == 0)
+            return $"{minutes} 分";
+        return minutes == 0 ? $"{hours} 小时" : $"{hours} 小时 {minutes} 分";
+    }
 }

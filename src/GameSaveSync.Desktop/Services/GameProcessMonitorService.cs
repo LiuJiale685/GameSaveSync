@@ -28,6 +28,12 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
     /// <summary>自动备份回调（由 App 启动时接到门面服务的 BackupNowAsync）。</summary>
     public Func<string, CancellationToken, Task<CommitInfo>>? BackupAsync { get; set; }
 
+    /// <summary>
+    /// 每次轮询回调（gameId, 当前是否运行）。用于游戏时长会话记录（开始 / 心跳 / 结束），
+    /// 由 App 启动时接到 <see cref="PlaySessionRecorder.OnTickAsync"/>。
+    /// </summary>
+    public Func<string, bool, CancellationToken, Task>? SessionTickAsync { get; set; }
+
     /// <summary>游戏运行状态变化（gameId, isRunning）；轮询发现变化或用户启动/停止游戏时触发。</summary>
     public event Action<string, bool>? GameStateChanged;
 
@@ -320,11 +326,34 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
                     game.WasRunning = running;
                     RaiseStateChanged(game.GameId, running);
                 }
+
+                // 游戏时长会话记录：每次轮询都回调（开始 / 心跳 / 结束由记录器判定）
+                var sessionTick = SessionTickAsync;
+                if (sessionTick is not null)
+                    _ = RecordSessionTickAsync(sessionTick, game.GameId, running, ct);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "轮询游戏 {GameId} 进程状态失败。", game.GameId);
             }
+        }
+    }
+
+    /// <summary>会话记录回调（异常只记日志，不影响监控循环）。</summary>
+    private static async Task RecordSessionTickAsync(
+        Func<string, bool, CancellationToken, Task> tick, string gameId, bool running, CancellationToken ct)
+    {
+        try
+        {
+            await tick(gameId, running, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 程序退出时取消，正常。
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "记录游戏 {GameId} 运行会话失败。", gameId);
         }
     }
 

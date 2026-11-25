@@ -34,6 +34,7 @@ public partial class App : Application
     private Mutex? _singleInstanceMutex;
     private TrayController? _tray;
     private GameProcessMonitorService? _monitor;
+    private PlaySessionRecorder? _sessionRecorder;
 
     public App()
     {
@@ -100,6 +101,12 @@ public partial class App : Application
             // ---------- 游戏进程监控（游戏退出自动备份，方案 6.3） ----------
             _monitor = _services.GetRequiredService<GameProcessMonitorService>();
             _monitor.BackupAsync = (gameId, ct) => appService.BackupNowAsync(gameId, "游戏退出自动备份", ct);
+
+            // ---------- 游戏时长会话记录（开始 / 心跳 / 结束） ----------
+            _sessionRecorder = _services.GetRequiredService<PlaySessionRecorder>();
+            _sessionRecorder.StartAsync().GetAwaiter().GetResult();
+            _monitor.SessionTickAsync = (gameId, running, ct) => _sessionRecorder.OnTickAsync(gameId, running, ct);
+
             _monitor.Start();
 
             // ---------- 主窗口与托盘 ----------
@@ -120,6 +127,8 @@ public partial class App : Application
         var services = new ServiceCollection();
         services.AddSingleton(db);
         services.AddSingleton<AppSettingsRepository>();
+        services.AddSingleton<PlaySessionRepository>();
+        services.AddSingleton<PlaySessionRecorder>();
         services.AddSingleton<GameProcessMonitorService>();
         services.AddSingleton<IGameProcessChecker>(sp => sp.GetRequiredService<GameProcessMonitorService>());
         services.AddSingleton<GameSaveSyncAppService>();
@@ -192,6 +201,15 @@ public partial class App : Application
         try
         {
             _monitor?.Dispose();
+            // 游戏仍在运行：会话记到退出时刻（AppClosed）
+            try
+            {
+                _sessionRecorder?.StopAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "退出时收尾游戏会话失败。");
+            }
             _tray?.Dispose();
             if (_services is not null)
             {

@@ -32,6 +32,7 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
     private readonly CommitCacheRepository _commitCache;
     private readonly ConflictRepository _conflictRepo;
     private readonly RestoreJournalRepository _journalRepo;
+    private readonly PlaySessionRepository _playSessions;
     private readonly IGameProcessChecker _processChecker;
 
     private FolderRepositoryStore? _store;
@@ -58,6 +59,7 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         _commitCache = new CommitCacheRepository(db);
         _conflictRepo = new ConflictRepository(db);
         _journalRepo = new RestoreJournalRepository(db);
+        _playSessions = new PlaySessionRepository(db);
     }
 
     /// <summary>配置的仓库根目录（百度网盘同步目录下的 GameSaveVault 仓库路径）。</summary>
@@ -583,6 +585,68 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         var name = Path.GetFileName(path);
         return name.StartsWith('.') && name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
     }
+
+    // ---------- 游戏时长统计 ----------
+
+    /// <summary>某游戏的时长汇总（总时长、会话数、平均/最长、首次/最后游戏时间）。</summary>
+    public Task<PlaySessionStats> GetGamePlayStatsAsync(
+        string gameId, CancellationToken ct = default)
+        => _playSessions.GetStatsAsync(gameId, ct);
+
+    /// <summary>某游戏最近的会话明细（默认最近 10 条）。</summary>
+    public Task<IReadOnlyList<PlaySessionRecord>> GetRecentPlaySessionsAsync(
+        string gameId, int topN = 10, CancellationToken ct = default)
+        => _playSessions.GetRecentSessionsAsync(gameId, topN, ct);
+
+    /// <summary>导出全部会话明细为 CSV（UTF-8 带 BOM，Excel 可直接打开）。返回写入的文件路径。</summary>
+    public async Task<string> ExportPlaySessionsCsvAsync(
+        string filePath, CancellationToken ct = default)
+    {
+        var sessions = await _playSessions.GetAllSessionsAsync(ct).ConfigureAwait(false);
+        var games = await _gameRepo.ListGamesAsync(ct).ConfigureAwait(false);
+        var nameById = games.ToDictionary(g => g.GameId, g => g.Name, StringComparer.OrdinalIgnoreCase);
+
+        static string Csv(string? value)
+        {
+            var text = value ?? string.Empty;
+            return text.Contains('"') || text.Contains(',') || text.Contains('\n')
+                ? '"' + text.Replace("\"", "\"\"") + '"'
+                : text;
+        }
+
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine("游戏名,GameId,会话ID,开始时间,结束时间,时长(秒),结束原因");
+        foreach (var s in sessions)
+        {
+            var gameName = nameById.TryGetValue(s.GameId, out var name) ? name : s.GameId;
+            builder.AppendLine(string.Join(',',
+                Csv(gameName),
+                Csv(s.GameId),
+                Csv(s.SessionId),
+                Csv(FormatLocal(s.StartedAt)),
+                Csv(FormatLocal(s.EndedAt)),
+                s.DurationSeconds.ToString(),
+                Csv(DescribeEndReason(s.EndReason))));
+        }
+
+        await File.WriteAllTextAsync(filePath, builder.ToString(),
+            new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true), ct).ConfigureAwait(false);
+        Log.Information("游戏时长数据已导出：{Path}（{Count} 条会话）", filePath, sessions.Count);
+        return filePath;
+    }
+
+    private static string FormatLocal(string utc)
+        => UtcClock.TryParse(utc, out var value)
+            ? value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            : utc;
+
+    private static string DescribeEndReason(PlaySessionEndReason reason) => reason switch
+    {
+        PlaySessionEndReason.NormalExit => "正常退出",
+        PlaySessionEndReason.AppClosed => "程序关闭时仍在运行",
+        PlaySessionEndReason.Interrupted => "中断（异常结束）",
+        _ => "未知",
+    };
 
     // ---------- 统计 ----------
 

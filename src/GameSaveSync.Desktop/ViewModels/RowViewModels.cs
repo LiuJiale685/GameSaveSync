@@ -1,6 +1,7 @@
 // GameSaveSync | By Jiale | Copyright (c) 2026 Jiale
 using CommunityToolkit.Mvvm.ComponentModel;
 using GameSaveSync.Core.Models;
+using GameSaveSync.Data;
 using GameSaveSync.Data.Repositories;
 
 namespace GameSaveSync.Desktop.ViewModels;
@@ -33,6 +34,41 @@ public sealed partial class GameRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(LaunchIconText))]
     [NotifyPropertyChangedFor(nameof(CanToggleLaunch))]
     private bool _isRunning;
+
+    /// <summary>游戏时长摘要（形如“36.5 小时 · 12 次”）；未统计时为“—”。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlaytimeDetailText))]
+    private string _playtimeText = "—";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlaytimeDetailText))]
+    private string _firstPlayedText = "—";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlaytimeDetailText))]
+    private string _lastPlayedText = "—";
+
+    /// <summary>时长列的悬停提示：首次 / 最后一次游戏时间。</summary>
+    public string PlaytimeDetailText => string.Join(Environment.NewLine,
+        $"总时长 / 会话数：{PlaytimeText}",
+        $"第一次游戏：{FirstPlayedText}",
+        $"最后一次游戏：{LastPlayedText}");
+
+    /// <summary>应用一条时长统计（无数据时显示“—”）。</summary>
+    public void ApplyPlayStats(PlaySessionStats stats)
+    {
+        if (!stats.HasData)
+        {
+            PlaytimeText = "—";
+            FirstPlayedText = "—";
+            LastPlayedText = "—";
+            return;
+        }
+
+        PlaytimeText = $"{FormatUtil.FormatDuration(stats.TotalSeconds)} · {stats.SessionCount} 次";
+        FirstPlayedText = FormatUtil.FormatUtcTimestamp(stats.FirstPlayedAt);
+        LastPlayedText = FormatUtil.FormatUtcTimestamp(stats.LastPlayedAt);
+    }
 
     public string StatusText => IsRunning ? "运行中" : "已停止";
 
@@ -69,6 +105,28 @@ public sealed partial class GameRowViewModel : ObservableObject
         Config = config;
         _isRunning = isRunning;
     }
+}
+
+/// <summary>游戏会话明细行（开始 / 结束 / 时长 / 结束原因）。</summary>
+public sealed class PlaySessionRowViewModel
+{
+    public PlaySessionRecord Record { get; }
+
+    public string StartDisplay => FormatUtil.FormatUtcTimestamp(Record.StartedAt);
+
+    public string EndDisplay => FormatUtil.FormatUtcTimestamp(Record.EndedAt);
+
+    public string DurationDisplay => FormatUtil.FormatDuration(Record.DurationSeconds);
+
+    public string ReasonDisplay => Record.EndReason switch
+    {
+        PlaySessionEndReason.NormalExit => "正常退出",
+        PlaySessionEndReason.AppClosed => "程序关闭时仍在运行",
+        PlaySessionEndReason.Interrupted => "中断（异常结束）",
+        _ => "—",
+    };
+
+    public PlaySessionRowViewModel(PlaySessionRecord record) => Record = record;
 }
 
 /// <summary>游戏下拉选择项（版本历史页 / 同步状态页共用）。</summary>

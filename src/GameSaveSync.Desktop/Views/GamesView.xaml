@@ -14,7 +14,9 @@
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
             <Button Content="刷新" Command="{Binding LoadGamesCommand}" Padding="10,3" Margin="0,0,8,0"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
-            <Button Content="刷新状态" Command="{Binding RefreshStatusCommand}" Padding="10,3" Margin="0,0,12,0"
+            <Button Content="刷新状态" Command="{Binding RefreshStatusCommand}" Padding="10,3" Margin="0,0,8,0"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
+            <Button Content="导出时长" Command="{Binding ExportPlaytimeCommand}" Padding="10,3" Margin="0,0,12,0"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"/>
             <CheckBox Content="显示已隐藏" IsChecked="{Binding ShowHidden}" VerticalAlignment="Center" Margin="0,0,12,0"/>
             <ProgressBar Width="80" Height="12" IsIndeterminate="True" VerticalAlignment="Center"
@@ -24,7 +26,13 @@
         </StackPanel>
         <TextBlock DockPanel.Dock="Bottom" Margin="10,0,10,6" Foreground="{DynamicResource ThemeMutedBrush}" FontSize="11"
                    Text="右键点击游戏行可 编辑 / 隐藏 / 删除；鼠标悬停可查看存档目录等完整配置。"/>
-        <ListView ItemsSource="{Binding Games}" Margin="8,4,8,4">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="120"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ListView Grid.Row="0" ItemsSource="{Binding Games}" Margin="8,4,8,4"
+                      SelectedItem="{Binding SelectedGame, Mode=TwoWay}">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem" BasedOn="{StaticResource AppListViewItemStyle}">
                     <Setter Property="ToolTip" Value="{Binding DetailText}"/>
@@ -50,7 +58,7 @@
             </ListView.ItemContainerStyle>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="游戏名称" Width="320">
+                    <GridViewColumn Header="游戏名称" Width="300">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -74,7 +82,7 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="状态" Width="100">
+                    <GridViewColumn Header="状态" Width="90">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <Border>
@@ -104,10 +112,20 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="操作" Width="110">
+                    <GridViewColumn Header="游戏时长" Width="170">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Padding="10,2" MinWidth="80"
+                                <TextBlock Text="{Binding PlaytimeText}" FontSize="12" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource ThemeSecondaryBrush}"
+                                           ToolTip="{Binding PlaytimeDetailText}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="操作" Width="100">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Padding="10,2" MinWidth="76"
                                         IsEnabled="{Binding CanToggleLaunch}"
                                         Command="{Binding DataContext.ToggleLaunchCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                                         CommandParameter="{Binding}">
@@ -121,6 +139,39 @@
                     </GridViewColumn>
                 </GridView>
             </ListView.View>
-        </ListView>
+            </ListView>
+
+            <!-- 选中游戏的最近游戏记录（少于 1 分钟的会话不计入统计） -->
+            <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Margin="8,4,8,8" Padding="12,10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="最近游戏记录"
+                               Style="{StaticResource SectionTitleTextBlockStyle}" Margin="0,0,0,4"/>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding SelectedSessionsHint}" FontSize="11"
+                               Foreground="{DynamicResource ThemeMutedBrush}" Margin="0,0,0,6"
+                               TextTrimming="CharacterEllipsis"/>
+                    <ListView ItemsSource="{Binding RecentSessions}" MaxHeight="150"
+                              BorderThickness="0" Background="Transparent"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem" BasedOn="{StaticResource AppListViewItemStyle}">
+                                <Setter Property="MinHeight" Value="26"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="开始时间" Width="170"
+                                                DisplayMemberBinding="{Binding StartDisplay}"/>
+                                <GridViewColumn Header="结束时间" Width="170"
+                                                DisplayMemberBinding="{Binding EndDisplay}"/>
+                                <GridViewColumn Header="时长" Width="110"
+                                                DisplayMemberBinding="{Binding DurationDisplay}"/>
+                                <GridViewColumn Header="结束原因" Width="160"
+                                                DisplayMemberBinding="{Binding ReasonDisplay}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </DockPanel>
+            </Border>
+        </Grid>
     </DockPanel>
 </UserControl>
