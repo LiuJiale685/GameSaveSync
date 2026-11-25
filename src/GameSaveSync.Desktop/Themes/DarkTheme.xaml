@@ -21,4 +21,9 @@
     <SolidColorBrush x:Key="ThemeRunningBadgeBackgroundBrush" Color="#1E3324"/>
     <SolidColorBrush x:Key="ThemeIdleBadgeBackgroundBrush" Color="#333333"/>
     <SolidColorBrush x:Key="ThemeIdleBadgeForegroundBrush" Color="#A0A0A0"/>
+
+    <!-- 列表行背景（悬停 / 选中），保证浅色文字始终有足够对比度 -->
+    <SolidColorBrush x:Key="ThemeRowHoverBrush" Color="#3A3A3A"/>
+    <SolidColorBrush x:Key="ThemeRowSelectedBrush" Color="#1F3A4D"/>
+    <SolidColorBrush x:Key="ThemeRowSelectedHoverBrush" Color="#28495F"/>
 </ResourceDictionary>

@@ -66,3 +66,10 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; F
 [UninstallDelete]
 ; 安装目录内的运行时残留（正常情况下程序数据在 %LOCALAPPDATA%，此处仅清理安装目录）
 Type: filesandordirs; Name: "{app}"
+
+[Registry]
+; 开机自启项由程序内“设置 → 开机自动启动”写入（HKCU Run），
+; 安装器本身不创建；卸载时清除残留值，避免开机启动已删除的程序。
+; 该值不存在时卸载删除为空操作，不会报错。
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
+    ValueType: none; ValueName: "GameSaveSync"; Flags: uninsdeletevalue
