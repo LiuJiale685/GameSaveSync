@@ -78,6 +78,9 @@
                                     <TextBlock Text="已隐藏" FontSize="10" VerticalAlignment="Center" Margin="6,1,0,0"
                                                Foreground="{DynamicResource ThemeStatusIdleBrush}"
                                                Visibility="{Binding IsHidden, Converter={StaticResource BoolToVis}}"/>
+                                    <TextBlock Text="未设置存档目录" FontSize="10" VerticalAlignment="Center" Margin="6,1,0,0"
+                                               Foreground="{DynamicResource ThemeMutedBrush}"
+                                               Visibility="{Binding HasNoSavePath, Converter={StaticResource BoolToVis}}"/>
                                 </StackPanel>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>

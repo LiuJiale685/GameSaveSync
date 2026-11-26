@@ -34,7 +34,8 @@ public interface IDialogService
     AddGameResult? ShowAddGameDialog(bool bindFromRepo, IReadOnlyList<SharedGameInfo> repoGames);
 
     /// <summary>编辑已有游戏配置（名称、存档目录、进程名、游戏程序）。</summary>
-    AddGameResult? ShowEditGameDialog(LocalGameConfig game);
+    /// <param name="isRunning">游戏是否正在运行（运行中同样允许编辑，界面上给出提示）。</param>
+    AddGameResult? ShowEditGameDialog(LocalGameConfig game, bool isRunning = false);
     string? PickItem(string prompt, IReadOnlyList<string> items);
     void ShowManifest(string title, IReadOnlyList<ManifestFileEntry> entries);
 }
@@ -77,9 +78,9 @@ public sealed class DialogService : IDialogService
         return window.ShowDialog() == true ? window.Result : null;
     }
 
-    public AddGameResult? ShowEditGameDialog(LocalGameConfig game)
+    public AddGameResult? ShowEditGameDialog(LocalGameConfig game, bool isRunning = false)
     {
-        var window = new AddGameWindow(game) { Owner = Owner };
+        var window = new AddGameWindow(game, isRunning) { Owner = Owner };
         return window.ShowDialog() == true ? window.Result : null;
     }
 

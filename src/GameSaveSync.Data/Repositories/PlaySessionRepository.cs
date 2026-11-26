@@ -195,6 +195,17 @@ public sealed class PlaySessionRepository
             var result = await cmd.ExecuteScalarAsync(ct);
             return Convert.ToInt32(result);
         }, ct);
+
+    /// <summary>某游戏已结束（含短会话）的会话次数；用于判断“是否已玩过一次”。</summary>
+    public Task<int> CountFinishedSessionsAsync(string gameId, CancellationToken ct = default)
+        => _db.ExecuteAsync(async conn =>
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM PlaySessions WHERE GameId = $g AND EndedAt IS NOT NULL";
+            cmd.Parameters.AddWithValue("$g", gameId);
+            var result = await cmd.ExecuteScalarAsync(ct);
+            return Convert.ToInt32(result);
+        }, ct);
 }
 
 /// <summary>单条游戏会话记录。</summary>

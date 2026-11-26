@@ -79,9 +79,79 @@ public sealed partial class GamesViewModel : ViewModelBase
         var wasRunning = row.IsRunning;
         row.IsRunning = isRunning;
 
-        // 游戏退出：会话已在监控回调中收尾，刷新该游戏的时长统计
-        if (wasRunning && !isRunning)
+        if (!wasRunning && isRunning)
+        {
+            // 游戏开始运行：借这次机会提示补填缺失的存档目录
+            _ = OnGameStartedAsync(row);
+        }
+        else if (wasRunning && !isRunning)
+        {
+            // 游戏退出：会话已在监控回调中收尾，刷新该游戏的时长统计
             _ = RefreshPlaytimeAsync(row);
+        }
+    }
+
+    /// <summary>本次运行中用户已拒绝补填存档目录的游戏（不再重复打扰）。</summary>
+    private readonly HashSet<string> _savePathPromptDeclined = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 游戏开始运行：首次启动不打扰（用户可进游戏确认存档真实位置），
+    /// 若此前已玩过一次且仍未设置存档目录，弹窗提示补填。
+    /// </summary>
+    private async Task OnGameStartedAsync(GameRowViewModel row)
+    {
+        if (row.HasSavePath || _savePathPromptDeclined.Contains(row.GameId))
+            return;
+
+        int finishedSessions;
+        try
+        {
+            finishedSessions = await _appService.CountFinishedPlaySessionsAsync(row.GameId);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "查询游戏 {GameId} 历史会话次数失败。", row.GameId);
+            return;
+        }
+
+        if (finishedSessions == 0)
+            return;
+
+        await PromptMissingSavePathAsync(row);
+    }
+
+    /// <summary>
+    /// 提示补填存档目录：已设置或本次运行中已拒绝过则不再打扰；
+    /// 用户同意后直接打开该游戏的编辑对话框。
+    /// </summary>
+    private async Task PromptMissingSavePathAsync(GameRowViewModel row)
+    {
+        if (row.HasSavePath || _savePathPromptDeclined.Contains(row.GameId))
+            return;
+
+        await RunOnUiThreadAsync(() =>
+        {
+            if (!Dialog.Confirm(
+                    $"游戏「{row.Name}」尚未设置存档目录，备份与同步都不会执行。\n\n现在补填存档目录吗？",
+                    "需要设置存档目录"))
+            {
+                _savePathPromptDeclined.Add(row.GameId);
+                return;
+            }
+            _ = EditGameAsync(row);
+        });
+    }
+
+    /// <summary>在 UI 线程执行并等待完成（对话框必须在 UI 线程弹出）。</summary>
+    private static async Task RunOnUiThreadAsync(Action action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+            return;
+        }
+        await dispatcher.InvokeAsync(action);
     }
 
     /// <summary>按“是否显示已隐藏”过滤后重建列表行（保留已知运行状态）。</summary>
@@ -256,23 +326,27 @@ public sealed partial class GamesViewModel : ViewModelBase
     {
         if (row is null)
             return;
-        if (row.IsRunning)
-        {
-            Dialog.Info($"游戏「{row.Name}」正在运行，请先停止后再修改配置。");
-            return;
-        }
 
-        var input = Dialog.ShowEditGameDialog(row.Config);
+        // 运行中也允许编辑：对话框已限制为“只能自动识别进程名 / 存档目录为空时补填”，
+        // 这里再保守地保留其余字段的原值，避免运行期改动影响监控。
+        var input = Dialog.ShowEditGameDialog(row.Config, row.IsRunning);
         if (input is null)
             return;
+
+        // 运行中原有进程名不能被清空，否则监控会丢失该游戏的运行状态
+        if (row.IsRunning && row.Config.ProcessNames.Count > 0 && input.ProcessNames.Count == 0)
+        {
+            Dialog.Info($"游戏「{row.Name}」正在运行，进程名不能清空。请点“自动识别”获取进程名。");
+            return;
+        }
 
         var config = new LocalGameConfig
         {
             GameId = row.GameId,
-            Name = input.Name,
+            Name = row.IsRunning ? row.Config.Name : input.Name,
             SavePath = input.SavePath,
             ProcessNames = input.ProcessNames.ToList(),
-            ExecutablePath = input.ExecutablePath,
+            ExecutablePath = row.IsRunning ? row.Config.ExecutablePath : input.ExecutablePath,
             AutoBackup = row.Config.AutoBackup,
             AutoRestore = row.Config.AutoRestore,
             IsHidden = row.Config.IsHidden,
@@ -456,7 +530,11 @@ public sealed partial class GamesViewModel : ViewModelBase
         if (stopped == 0)
             Dialog.Info("未找到正在运行的游戏进程（可能已退出）。");
         else
+        {
             StatusText = $"已停止「{row.Name}」（{stopped} 个进程）。";
+            // 游戏刚退出、存档刚落盘，是补填存档目录最好的时机
+            await PromptMissingSavePathAsync(row);
+        }
     }
 
     /// <summary>导出全部游戏的时长与会话明细为 CSV。</summary>

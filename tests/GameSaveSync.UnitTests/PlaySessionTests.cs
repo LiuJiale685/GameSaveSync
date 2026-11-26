@@ -186,4 +186,17 @@ public sealed class PlaySessionTests : IAsyncLifetime
         Assert.Equal("s5", recent[0].SessionId);
         Assert.Equal("s3", recent[2].SessionId);
     }
+
+    [Fact]
+    public async Task CountFinishedSessions_IgnoresRunningSessions()
+    {
+        Assert.Equal(0, await _repo.CountFinishedSessionsAsync(GameId));
+
+        await _repo.InsertAsync("s-done", GameId, "2026-01-01T10:00:00Z");
+        await _repo.FinishAsync("s-done", "2026-01-01T11:00:00Z", PlaySessionEndReason.NormalExit);
+        await _repo.InsertAsync("s-running", GameId, "2026-01-01T12:00:00Z");
+
+        Assert.Equal(1, await _repo.CountFinishedSessionsAsync(GameId));
+        Assert.Equal(0, await _repo.CountFinishedSessionsAsync("no-such-game"));
+    }
 }

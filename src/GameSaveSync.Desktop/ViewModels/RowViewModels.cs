@@ -17,6 +17,12 @@ public sealed partial class GameRowViewModel : ObservableObject
 
     public string SavePath => Config.SavePath;
 
+    /// <summary>是否已设置本机存档目录（首次添加游戏时可留空，稍后补填）。</summary>
+    public bool HasSavePath => !string.IsNullOrWhiteSpace(Config.SavePath);
+
+    /// <summary>未设置存档目录（列表中显示提示标签）。</summary>
+    public bool HasNoSavePath => !HasSavePath;
+
     public string ProcessNamesText => Config.ProcessNames.Count == 0
         ? "（未配置）"
         : string.Join(", ", Config.ProcessNames);
@@ -95,7 +101,7 @@ public sealed partial class GameRowViewModel : ObservableObject
     /// <summary>列表行的悬停提示：完整配置（存档目录、进程名、游戏程序、GameId）。</summary>
     public string DetailText => string.Join(Environment.NewLine,
         Name,
-        $"存档目录：{SavePath}",
+        $"存档目录：{(HasSavePath ? SavePath : "（未设置，请在“编辑”中填写）")}",
         $"进程名：{ProcessNamesText}",
         $"游戏程序：{ExecutablePathText}",
         $"GameId：{GameId}");

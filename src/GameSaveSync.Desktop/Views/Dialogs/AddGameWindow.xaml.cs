@@ -38,19 +38,47 @@ public partial class AddGameWindow : Window
     }
 
     /// <summary>编辑模式：以已有配置预填各字段，gameId 保持不变。</summary>
-    public AddGameWindow(LocalGameConfig game)
+    /// <param name="isRunning">游戏正在运行：仅开放“自动识别进程名”，以及存档目录为空时补填存档目录。</param>
+    public AddGameWindow(LocalGameConfig game, bool isRunning = false)
     {
         InitializeComponent();
         _bindFromRepo = false;
 
         Title = "编辑游戏";
-        ModeText.Text = "修改本机游戏配置。gameId 保持不变，存档目录与游戏程序只影响本机。";
         SharedPanel.Visibility = Visibility.Collapsed;
 
         NameBox.Text = game.Name;
         PathBox.Text = game.SavePath;
         ProcessBox.Text = string.Join(", ", game.ProcessNames);
         ExeBox.Text = game.ExecutablePath;
+
+        if (isRunning)
+            ApplyRunningRestrictions(hasSavePath: !string.IsNullOrWhiteSpace(game.SavePath));
+        else
+            ModeText.Text = "修改本机游戏配置。gameId 保持不变，存档目录与游戏程序只影响本机。";
+    }
+
+    /// <summary>
+    /// 运行中编辑的限制：只放开“自动识别”按钮；存档目录为空时额外放开补填，
+    /// 其余字段（名称、进程名、游戏程序）一律只读，避免运行期改错导致监控失联。
+    /// </summary>
+    private void ApplyRunningRestrictions(bool hasSavePath)
+    {
+        ModeText.Text = hasSavePath
+            ? "游戏正在运行中：仅支持用“自动识别”补全进程名。如需修改其他配置，请先停止游戏。"
+            : "游戏正在运行中：可用“自动识别”补全进程名，也可补填存档目录（备份与同步需要）。其他配置请先停止游戏再修改。";
+
+        NameBox.IsReadOnly = true;
+        ExeBox.IsReadOnly = true;
+        // 进程名只允许通过“自动识别”写入，避免运行期手填出错导致监控失联
+        ProcessBox.IsReadOnly = true;
+        BrowseExeButton.Visibility = Visibility.Collapsed;
+
+        if (hasSavePath)
+        {
+            PathBox.IsReadOnly = true;
+            BrowsePathButton.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void SharedCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -113,9 +141,10 @@ public partial class AddGameWindow : Window
             NameBox.Focus();
             return;
         }
-        if (savePath.Length == 0 || !Directory.Exists(savePath))
+        // 存档目录可留空（首次添加游戏往往还不确定位置），稍后可在“编辑”中补填。
+        if (savePath.Length > 0 && !Directory.Exists(savePath))
         {
-            MessageBox.Show(this, "存档目录不存在，请通过“浏览…”选择或输入有效目录。",
+            MessageBox.Show(this, "存档目录不存在，请通过“浏览…”选择或输入有效目录（也可留空稍后填写）。",
                 Title, MessageBoxButton.OK, MessageBoxImage.Warning);
             PathBox.Focus();
             return;

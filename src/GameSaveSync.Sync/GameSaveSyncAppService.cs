@@ -151,7 +151,8 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
             ExecutablePath = executablePath ?? string.Empty,
         };
         await _gameRepo.AddOrUpdateGameAsync(config, ct).ConfigureAwait(false);
-        await _gameRepo.SetSavePathAsync(gameId, Device.DeviceId, savePath, ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(savePath))
+            await _gameRepo.SetSavePathAsync(gameId, Device.DeviceId, savePath, ct).ConfigureAwait(false);
         await PublishSharedProcessNamesAsync(gameId, normalizedProcessNames, ct).ConfigureAwait(false);
         return config;
     }
@@ -189,7 +190,8 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
             ExecutablePath = executablePath ?? string.Empty,
         };
         await _gameRepo.AddOrUpdateGameAsync(config, ct).ConfigureAwait(false);
-        await _gameRepo.SetSavePathAsync(sharedGameId, Device.DeviceId, savePath, ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(savePath))
+            await _gameRepo.SetSavePathAsync(sharedGameId, Device.DeviceId, savePath, ct).ConfigureAwait(false);
         return config;
     }
 
@@ -598,6 +600,11 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         string gameId, int topN = 10, CancellationToken ct = default)
         => _playSessions.GetRecentSessionsAsync(gameId, topN, ct);
 
+    /// <summary>某游戏已结束的会话次数（用于判断“是否已玩过一次”）。</summary>
+    public Task<int> CountFinishedPlaySessionsAsync(
+        string gameId, CancellationToken ct = default)
+        => _playSessions.CountFinishedSessionsAsync(gameId, ct);
+
     /// <summary>导出全部会话明细为 CSV（UTF-8 带 BOM，Excel 可直接打开）。返回写入的文件路径。</summary>
     public async Task<string> ExportPlaySessionsCsvAsync(
         string filePath, CancellationToken ct = default)
@@ -681,7 +688,8 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
     {
         var path = await _gameRepo.GetSavePathAsync(gameId, Device.DeviceId, ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(path))
-            throw new InvalidOperationException($"游戏 {gameId} 未配置本机存档路径。");
+            throw new InvalidOperationException(
+                $"游戏 {gameId} 尚未设置本机存档目录，请先在游戏页“编辑…”中填写存档目录。");
         return path!;
     }
 

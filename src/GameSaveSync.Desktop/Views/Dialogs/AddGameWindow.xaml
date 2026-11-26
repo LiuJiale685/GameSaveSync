@@ -36,16 +36,17 @@
         <TextBlock Grid.Row="2" Grid.Column="0" Text="游戏名称：" VerticalAlignment="Center" Margin="0,0,8,0"/>
         <TextBox x:Name="NameBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"/>
 
-        <TextBlock Grid.Row="3" Grid.Column="0" Text="存档目录：" VerticalAlignment="Center" Margin="0,10,8,0"/>
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="存档目录：" VerticalAlignment="Center" Margin="0,10,8,0"
+                   ToolTip="可留空。首次添加游戏还不知道存档位置时先加上，之后在“编辑”中补填即可。"/>
         <TextBox x:Name="PathBox" Grid.Row="3" Grid.Column="1" Margin="0,10,0,0"/>
-        <Button Grid.Row="3" Grid.Column="2" Content="浏览…" Margin="6,10,0,0" Padding="8,2"
+        <Button Grid.Row="3" Grid.Column="2" x:Name="BrowsePathButton" Content="浏览…" Margin="6,10,0,0" Padding="8,2"
                 VerticalAlignment="Center" Click="Browse_Click"/>
 
         <TextBlock Grid.Row="4" Grid.Column="0" Text="进程名：" VerticalAlignment="Center" Margin="0,10,8,0"
                    ToolTip="可选。用于判断游戏是否运行（游戏退出后自动备份）。进程名会同步到共享仓库，供其他设备使用。"/>
         <TextBox x:Name="ProcessBox" Grid.Row="4" Grid.Column="1" Margin="0,10,0,0"
                  ToolTip="可选。多个进程名用逗号或分号分隔，例如：game.exe, launcher.exe（自动补全 .exe 后缀）"/>
-        <Button Grid.Row="4" Grid.Column="2" Content="自动识别" Margin="6,10,0,0" Padding="8,2"
+        <Button Grid.Row="4" Grid.Column="2" x:Name="DetectButton" Content="自动识别" Margin="6,10,0,0" Padding="8,2"
                 VerticalAlignment="Center" Click="DetectProcess_Click"
                 ToolTip="先启动游戏，再点此按钮，从正在运行的进程中自动识别（推荐配置好游戏程序后使用）"/>
 
@@ -53,7 +54,7 @@
                    ToolTip="可选。选择游戏可执行文件（.exe），之后可在游戏列表一键启动游戏。"/>
         <TextBox x:Name="ExeBox" Grid.Row="5" Grid.Column="1" Margin="0,10,0,0"
                  ToolTip="可选。游戏可执行文件完整路径，例如 D:\Games\MyGame\MyGame.exe"/>
-        <Button Grid.Row="5" Grid.Column="2" Content="浏览…" Margin="6,10,0,0" Padding="8,2"
+        <Button Grid.Row="5" Grid.Column="2" x:Name="BrowseExeButton" Content="浏览…" Margin="6,10,0,0" Padding="8,2"
                 VerticalAlignment="Center" Click="BrowseExe_Click"/>
 
         <TextBlock Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0" Foreground="{DynamicResource ThemeMutedBrush}"
