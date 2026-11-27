@@ -68,15 +68,16 @@ public partial class AddGameWindow : Window
             ? "游戏正在运行中：仅支持用“自动识别”补全进程名。如需修改其他配置，请先停止游戏。"
             : "游戏正在运行中：可用“自动识别”补全进程名，也可补填存档目录（备份与同步需要）。其他配置请先停止游戏再修改。";
 
-        NameBox.IsReadOnly = true;
-        ExeBox.IsReadOnly = true;
+        // 不可编辑的字段直接禁用（置灰），比只读更直观
+        NameBox.IsEnabled = false;
+        ExeBox.IsEnabled = false;
         // 进程名只允许通过“自动识别”写入，避免运行期手填出错导致监控失联
-        ProcessBox.IsReadOnly = true;
+        ProcessBox.IsEnabled = false;
         BrowseExeButton.Visibility = Visibility.Collapsed;
 
         if (hasSavePath)
         {
-            PathBox.IsReadOnly = true;
+            PathBox.IsEnabled = false;
             BrowsePathButton.Visibility = Visibility.Collapsed;
         }
     }
