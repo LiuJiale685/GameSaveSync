@@ -115,6 +115,9 @@ public partial class App : Application
             var mainWindow = _services.GetRequiredService<MainWindow>();
             mainWindow.Show();
             _tray = new TrayController(mainWindow);
+
+            // ---------- 后台更新检查（“提醒式”：只提示，不下载） ----------
+            _ = CheckForUpdatesAsync(mainWindow, _services.GetRequiredService<UpdateService>());
         }
         catch (Exception ex)
         {
@@ -134,6 +137,7 @@ public partial class App : Application
         services.AddSingleton<GameProcessMonitorService>();
         services.AddSingleton<IGameProcessChecker>(sp => sp.GetRequiredService<GameProcessMonitorService>());
         services.AddSingleton<GameSaveSyncAppService>();
+        services.AddSingleton<UpdateService>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<GamesViewModel>();
         services.AddSingleton<VersionsViewModel>();
@@ -142,6 +146,41 @@ public partial class App : Application
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// 启动后台检查更新：有新版时弹托盘气泡，点击打开 GitHub 发布页。
+    /// 全程静默，不阻塞启动、不弹错误框。
+    /// </summary>
+    private async Task CheckForUpdatesAsync(Window mainWindow, UpdateService updateService)
+    {
+        try
+        {
+            var result = await updateService.CheckAsync(force: false);
+            if (!result.HasUpdate || result.LatestVersion is null)
+                return;
+            await Dispatcher.InvokeAsync(() =>
+            {
+                _tray?.ShowBalloon(
+                    "发现新版本",
+                    $"GameSaveSync v{result.LatestVersion.ToString(3)} 已发布，点击查看。",
+                    onClick: () =>
+                    {
+                        UpdateService.OpenReleasesPage();
+                        if (mainWindow is Views.MainWindow window)
+                        {
+                            window.Show();
+                            window.WindowState = WindowState.Normal;
+                            window.Activate();
+                        }
+                    });
+                Log.Information("提示更新：v{Version}。", result.LatestVersion.ToString(3));
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Information(ex, "启动更新检查失败（已忽略）。");
+        }
     }
 
     /// <summary>Mutex 名称：仓库路径 SHA256 前 16 位；未绑定仓库时用固定名称（T15）。</summary>

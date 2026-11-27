@@ -3,7 +3,7 @@
 ; 或手动：ISCC.exe installer\GameSaveSync.iss
 
 #define AppName "GameSaveSync"
-#define AppVersion "1.0.0"
+#define AppVersion "1.0.1"
 #define AppPublisher "Jiale"
 #define AppCopyright "Copyright (c) 2026 Jiale. All rights reserved."
 #define AppExeName "GameSaveSync.exe"

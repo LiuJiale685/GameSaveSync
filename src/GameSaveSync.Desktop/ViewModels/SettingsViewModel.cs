@@ -15,6 +15,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
 {
     private readonly GameSaveSyncAppService _appService;
     private readonly AppSettingsRepository _settings;
+    private readonly UpdateService _updateService;
 
     // ---- 仓库绑定 ----
     [ObservableProperty] private string _repoPathInput = string.Empty;
@@ -36,6 +37,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public string AppVersionDisplay { get; } =
         $"GameSaveSync v{typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"}";
 
+    // ---- 检查更新 ----
+    [ObservableProperty] private string _updateStatus = "尚未检查。";
+
     // ---- 外观 ----
     /// <summary>主题选项（跟随系统 / 浅色 / 深色）。</summary>
     public IReadOnlyList<ThemeOption> ThemeOptions { get; } = new[]
@@ -56,11 +60,13 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public SettingsViewModel(
         GameSaveSyncAppService appService,
         AppSettingsRepository settings,
+        UpdateService updateService,
         IDialogService dialog)
         : base(dialog)
     {
         _appService = appService;
         _settings = settings;
+        _updateService = updateService;
     }
 
     [RelayCommand]
@@ -237,6 +243,42 @@ public sealed partial class SettingsViewModel : ViewModelBase
         DeviceCreatedAt = FormatUtil.FormatUtcTimestamp(device.CreatedAt);
         Dialog.Info($"已重新生成设备 ID：{DeviceIdShort}…");
     }
+
+    [RelayCommand]
+    private async Task CheckUpdateAsync()
+    {
+        UpdateStatus = "正在检查更新…";
+        UpdateCheckResult result;
+        IsBusy = true;
+        try
+        {
+            result = await Task.Run(() => _updateService.CheckAsync(force: true));
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        if (!result.Succeeded)
+        {
+            UpdateStatus = "检查失败：无法访问 GitHub（可能网络受限），请稍后重试。";
+            return;
+        }
+        if (result.LatestVersion is null)
+        {
+            UpdateStatus = "检查失败：返回数据无法识别。";
+            return;
+        }
+
+        var latest = result.LatestVersion.ToString(3);
+        UpdateStatus = result.HasUpdate
+            ? $"发现新版本 v{latest}（当前 v{UpdateService.CurrentVersion.ToString(3)}）。"
+            : $"已是最新版本 v{latest}。";
+    }
+
+    /// <summary>打开 GitHub 发布页（人工下载安装包）。</summary>
+    [RelayCommand]
+    private void OpenReleasePage() => UpdateService.OpenReleasesPage();
 
     [RelayCommand]
     private async Task RefreshStatsAsync()

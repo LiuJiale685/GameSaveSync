@@ -39,4 +39,10 @@ public sealed class AppSettingsRepository
 
     /// <summary>外观主题设置（0=跟随系统，1=浅色，2=深色）。</summary>
     public const string ThemeKey = "themeMode";
+
+    /// <summary>上次检查更新的时间（ISO 8601 UTC），用于 24 小时缓存。</summary>
+    public const string UpdateCheckedAtKey = "updateCheckedAt";
+
+    /// <summary>上次检查到的最新版本号（如 1.2.0）。</summary>
+    public const string UpdateLatestVersionKey = "updateLatestVersion";
 }

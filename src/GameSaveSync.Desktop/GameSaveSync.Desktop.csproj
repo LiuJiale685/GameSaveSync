@@ -11,9 +11,9 @@
     <AssemblyName>GameSaveSync</AssemblyName>
 
     <!-- 程序集与文件版本信息（资源管理器属性、自动更新比对使用） -->
-    <Version>1.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Version>1.0.1</Version>
+    <FileVersion>1.0.1.0</FileVersion>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
     <Company>Jiale</Company>
     <Authors>Jiale</Authors>
     <Product>GameSaveSync</Product>

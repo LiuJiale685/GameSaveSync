@@ -15,6 +15,7 @@ public sealed class TrayController : IDisposable
 {
     private readonly TaskbarIcon _icon;
     private readonly Window _mainWindow;
+    private Action? _balloonClick;
 
     public TrayController(Window mainWindow)
     {
@@ -36,6 +37,19 @@ public sealed class TrayController : IDisposable
             Icon = LoadIcon(),
         };
         _icon.TrayLeftMouseUp += (_, _) => ShowMainWindow();
+        _icon.TrayBalloonTipClicked += (_, _) =>
+        {
+            var callback = _balloonClick;
+            _balloonClick = null;
+            callback?.Invoke();
+        };
+    }
+
+    /// <summary>弹出气泡提示；点击气泡触发 <paramref name="onClick"/>（可选）。</summary>
+    public void ShowBalloon(string title, string message, Action? onClick = null)
+    {
+        _balloonClick = onClick;
+        _icon.ShowBalloonTip(title, message, BalloonIcon.Info);
     }
 
     private void ShowMainWindow()
