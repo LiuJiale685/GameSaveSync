@@ -26,4 +26,13 @@
     <SolidColorBrush x:Key="ThemeRowHoverBrush" Color="#EEEEEE"/>
     <SolidColorBrush x:Key="ThemeRowSelectedBrush" Color="#CCE4F7"/>
     <SolidColorBrush x:Key="ThemeRowSelectedHoverBrush" Color="#BBD8F0"/>
+
+    <!-- 游戏库：左侧列表底色 + 右侧详情区底色 + 顶部横幅渐变 -->
+    <SolidColorBrush x:Key="ThemeSidebarBackgroundBrush" Color="#EFEFEF"/>
+    <SolidColorBrush x:Key="ThemeDetailBackgroundBrush" Color="#FAFAFA"/>
+    <LinearGradientBrush x:Key="ThemeHeroBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#CFE6F8" Offset="0"/>
+        <GradientStop Color="#F2F5F8" Offset="0.65"/>
+        <GradientStop Color="#FAFAFA" Offset="1"/>
+    </LinearGradientBrush>
 </ResourceDictionary>

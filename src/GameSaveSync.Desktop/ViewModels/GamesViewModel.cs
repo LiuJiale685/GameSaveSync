@@ -455,14 +455,14 @@ public sealed partial class GamesViewModel : ViewModelBase
             try
             {
                 StatusText = $"正在自动识别「{row.Name}」的进程名…";
-                var names = await _monitor.DetectProcessNamesAsync(
+                var name = await _monitor.DetectProcessNamesAsync(
                     row.Config.ExecutablePath, TimeSpan.FromSeconds(20));
-                if (names.Count > 0)
+                if (name is not null)
                 {
-                    row.Config.ProcessNames = names.ToList();
+                    row.Config.ProcessNames = new List<string> { name };
                     await _appService.UpdateGameAsync(row.Config);
                     detected = true;
-                    StatusText = $"已识别进程名：{string.Join(", ", names)}";
+                    StatusText = $"已识别进程名：{name}";
                 }
                 else
                 {

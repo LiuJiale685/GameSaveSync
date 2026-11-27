@@ -106,6 +106,15 @@ public sealed partial class GameRowViewModel : ObservableObject
         $"游戏程序：{ExecutablePathText}",
         $"GameId：{GameId}");
 
+    /// <summary>详情页展示的存档目录（未设置时给出操作提示）。</summary>
+    public string SavePathDisplay => HasSavePath ? SavePath : "（未设置，点击下方“编辑…”补充存档目录）";
+
+    /// <summary>详情页展示的 GameId（前 8 位，悬停可看完整值）。</summary>
+    public string ShortGameId => FormatUtil.ShortId(GameId);
+
+    /// <summary>侧栏封面占位字符：取游戏名首字符。</summary>
+    public string Initial => string.IsNullOrWhiteSpace(Name) ? "?" : Name.Trim()[..1].ToUpperInvariant();
+
     public GameRowViewModel(LocalGameConfig config, bool isRunning = false)
     {
         Config = config;

@@ -106,8 +106,8 @@ public partial class AddGameWindow : Window
             return;
         }
 
-        var names = GameProcessMonitorService.DetectRunningProcessNames(exePath);
-        if (names.Count == 0)
+        var name = GameProcessMonitorService.DetectRunningProcessNames(exePath);
+        if (name is null)
         {
             MessageBox.Show(this,
                 "未检测到正在运行的进程。请先启动游戏，等进入游戏后再点“自动识别”。",
@@ -115,7 +115,7 @@ public partial class AddGameWindow : Window
             return;
         }
 
-        ProcessBox.Text = string.Join(", ", names);
+        ProcessBox.Text = name;
     }
 
     private void BrowseExe_Click(object sender, RoutedEventArgs e)

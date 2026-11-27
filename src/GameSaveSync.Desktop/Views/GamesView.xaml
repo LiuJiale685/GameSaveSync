@@ -1,11 +1,59 @@
-﻿<!-- GameSaveSync | By Jiale | Copyright (c) 2026 Jiale -->
+<!-- GameSaveSync | By Jiale | Copyright (c) 2026 Jiale -->
 <UserControl x:Class="GameSaveSync.Desktop.Views.GamesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- 左侧游戏列表项（类 Steam 游戏库侧栏） -->
+        <Style x:Key="SidebarGameItemStyle" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="6,5"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="RowBorder" Background="{TemplateBinding Background}"
+                                CornerRadius="5" Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RowBorder" Property="Background"
+                                        Value="{DynamicResource ThemeRowHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="RowBorder" Property="Background"
+                                        Value="{DynamicResource ThemeRowSelectedBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 详情页标签 -->
+        <Style x:Key="InfoLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeMutedBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+        </Style>
+        <Style x:Key="InfoValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeSecondaryBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="DetailActionButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
     </UserControl.Resources>
+
     <DockPanel>
+        <!-- 顶部工具栏 -->
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="10,10,10,6">
             <Button Content="添加游戏" Command="{Binding AddGameCommand}" Padding="10,3" Margin="0,0,8,0"
                     Style="{StaticResource PrimaryButtonStyle}"
@@ -24,157 +72,279 @@
             <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="8,0,0,0"
                        Foreground="{DynamicResource ThemeMutedBrush}" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
         </StackPanel>
-        <TextBlock DockPanel.Dock="Bottom" Margin="10,0,10,6" Foreground="{DynamicResource ThemeMutedBrush}" FontSize="11"
-                   Text="右键点击游戏行可 编辑 / 隐藏 / 删除；鼠标悬停可查看存档目录等完整配置。"/>
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" MinHeight="120"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <ListView Grid.Row="0" ItemsSource="{Binding Games}" Margin="8,4,8,4"
-                      SelectedItem="{Binding SelectedGame, Mode=TwoWay}">
-            <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem" BasedOn="{StaticResource AppListViewItemStyle}">
-                    <Setter Property="ToolTip" Value="{Binding DetailText}"/>
-                    <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}"/>
-                    <Setter Property="ContextMenu">
-                        <Setter.Value>
-                            <ContextMenu>
-                                <MenuItem Header="编辑…"
-                                          Command="{Binding PlacementTarget.Tag.EditGameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <MenuItem Header="{Binding PlacementTarget.DataContext.HideActionText, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                          Command="{Binding PlacementTarget.Tag.ToggleHideCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <Separator/>
-                                <MenuItem Header="删除…"
-                                          IsEnabled="{Binding PlacementTarget.DataContext.CanDelete, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                          Command="{Binding PlacementTarget.Tag.DeleteGameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                            </ContextMenu>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </ListView.ItemContainerStyle>
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="游戏名称" Width="300">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{DynamicResource ThemeNameBrush}"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsHidden}" Value="True">
-                                                        <Setter Property="Foreground" Value="{DynamicResource ThemeStatusIdleBrush}"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    <TextBlock Text="已隐藏" FontSize="10" VerticalAlignment="Center" Margin="6,1,0,0"
-                                               Foreground="{DynamicResource ThemeStatusIdleBrush}"
-                                               Visibility="{Binding IsHidden, Converter={StaticResource BoolToVis}}"/>
-                                    <TextBlock Text="未设置存档目录" FontSize="10" VerticalAlignment="Center" Margin="6,1,0,0"
-                                               Foreground="{DynamicResource ThemeMutedBrush}"
-                                               Visibility="{Binding HasNoSavePath, Converter={StaticResource BoolToVis}}"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="状态" Width="90">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <Border>
-                                    <Border.Style>
-                                        <Style TargetType="Border" BasedOn="{StaticResource PillBadgeBorderStyle}">
-                                            <Setter Property="Background" Value="{DynamicResource ThemeIdleBadgeBackgroundBrush}"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                    <Setter Property="Background" Value="{DynamicResource ThemeRunningBadgeBackgroundBrush}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <TextBlock Text="{Binding StatusText}" FontSize="11" VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{DynamicResource ThemeIdleBadgeForegroundBrush}"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                        <Setter Property="Foreground" Value="{DynamicResource ThemeStatusRunningBrush}"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </Border>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="游戏时长" Width="170">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding PlaytimeText}" FontSize="12" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource ThemeSecondaryBrush}"
-                                           ToolTip="{Binding PlaytimeDetailText}"
-                                           TextTrimming="CharacterEllipsis"/>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="操作" Width="100">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <Button Padding="10,2" MinWidth="76"
-                                        IsEnabled="{Binding CanToggleLaunch}"
-                                        Command="{Binding DataContext.ToggleLaunchCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                        CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding LaunchIconText}" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding LaunchActionText}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                </GridView>
-            </ListView.View>
-            </ListView>
 
-            <!-- 选中游戏的最近游戏记录（少于 1 分钟的会话不计入统计） -->
-            <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Margin="8,4,8,8" Padding="12,10">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="最近游戏记录"
-                               Style="{StaticResource SectionTitleTextBlockStyle}" Margin="0,0,0,4"/>
-                    <TextBlock DockPanel.Dock="Top" Text="{Binding SelectedSessionsHint}" FontSize="11"
-                               Foreground="{DynamicResource ThemeMutedBrush}" Margin="0,0,0,6"
-                               TextTrimming="CharacterEllipsis"/>
-                    <ListView ItemsSource="{Binding RecentSessions}" MaxHeight="150"
-                              BorderThickness="0" Background="Transparent"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem" BasedOn="{StaticResource AppListViewItemStyle}">
-                                <Setter Property="MinHeight" Value="26"/>
+        <TextBlock DockPanel.Dock="Bottom" Margin="10,0,10,6" Foreground="{DynamicResource ThemeMutedBrush}" FontSize="11"
+                   Text="左侧选择游戏，右侧查看详情并可启动 / 编辑 / 隐藏 / 删除；右键游戏行同样可操作。"/>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" MinWidth="180"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ============ 左：游戏列表 ============ -->
+            <Border Grid.Column="0" Background="{DynamicResource ThemeSidebarBackgroundBrush}"
+                    BorderBrush="{DynamicResource ThemeBorderBrush}" BorderThickness="0,0,1,0">
+                <DockPanel Margin="6,6,6,6">
+                    <TextBlock DockPanel.Dock="Top" Text="我的游戏" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ThemeMutedBrush}" Margin="8,4,0,6"/>
+                    <ListBox ItemsSource="{Binding Games}"
+                             SelectedItem="{Binding SelectedGame, Mode=TwoWay}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource SidebarGameItemStyle}">
+                                <Setter Property="ToolTip" Value="{Binding DetailText}"/>
+                                <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}"/>
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu>
+                                            <MenuItem Header="编辑…"
+                                                      Command="{Binding PlacementTarget.Tag.EditGameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <MenuItem Header="{Binding PlacementTarget.DataContext.HideActionText, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      Command="{Binding PlacementTarget.Tag.ToggleHideCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <Separator/>
+                                            <MenuItem Header="删除…"
+                                                      IsEnabled="{Binding PlacementTarget.DataContext.CanDelete, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      Command="{Binding PlacementTarget.Tag.DeleteGameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
                             </Style>
-                        </ListView.ItemContainerStyle>
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Header="开始时间" Width="170"
-                                                DisplayMemberBinding="{Binding StartDisplay}"/>
-                                <GridViewColumn Header="结束时间" Width="170"
-                                                DisplayMemberBinding="{Binding EndDisplay}"/>
-                                <GridViewColumn Header="时长" Width="110"
-                                                DisplayMemberBinding="{Binding DurationDisplay}"/>
-                                <GridViewColumn Header="结束原因" Width="160"
-                                                DisplayMemberBinding="{Binding ReasonDisplay}"/>
-                            </GridView>
-                        </ListView.View>
-                    </ListView>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- 封面占位 -->
+                                    <Border Width="30" Height="30" CornerRadius="4" Margin="0,0,8,0"
+                                            Background="{DynamicResource ThemeHashBadgeBackgroundBrush}">
+                                        <TextBlock Text="{Binding Initial}" FontSize="14" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource ThemeSecondaryBrush}"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource ThemeNameBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource ThemeStatusIdleBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                            <TextBlock Text="运行中" FontSize="10"
+                                                       Foreground="{DynamicResource ThemeStatusRunningBrush}"
+                                                       Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"/>
+                                            <TextBlock Text="未设置存档目录" FontSize="10"
+                                                       Foreground="{DynamicResource ThemeMutedBrush}"
+                                                       Visibility="{Binding HasNoSavePath, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <!-- 运行中小圆点 -->
+                                    <Ellipse Grid.Column="1" Width="7" Height="7" HorizontalAlignment="Right"
+                                             VerticalAlignment="Center" Fill="{DynamicResource ThemeStatusRunningBrush}"
+                                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </DockPanel>
             </Border>
+
+            <!-- ============ 右：游戏详情 ============ -->
+            <Grid Grid.Column="1" Background="{DynamicResource ThemeDetailBackgroundBrush}">
+                <!-- 未选择提示 -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedGame}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="&#xE7FC;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="44"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource ThemeStatusIdleBrush}"/>
+                    <TextBlock Text="从左侧选择一个游戏查看详情" Margin="0,12,0,0" FontSize="13"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource ThemeMutedBrush}"/>
+                </StackPanel>
+
+                <!-- 详情内容 -->
+                <Grid>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedGame}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="90"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 英雄区：名称 + 状态 + 操作 -->
+                    <Border Grid.Row="0" Background="{DynamicResource ThemeHeroBrush}" Padding="20,16">
+                        <Grid>
+                            <TextBlock Text="{Binding SelectedGame.Initial}" FontSize="110" FontWeight="Bold"
+                                       Opacity="0.07" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Margin="0,-16,10,0" Foreground="{DynamicResource ThemeNameBrush}"/>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding SelectedGame.Name}" FontSize="23" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ThemeNameBrush}"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    <TextBlock Text="已隐藏" FontSize="11" Margin="10,4,0,0"
+                                               Foreground="{DynamicResource ThemeStatusIdleBrush}"
+                                               Visibility="{Binding SelectedGame.IsHidden, Converter={StaticResource BoolToVis}}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <!-- 状态胶囊 -->
+                                    <Border Margin="0,0,10,0">
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource PillBadgeBorderStyle}">
+                                                <Setter Property="Background" Value="{DynamicResource ThemeIdleBadgeBackgroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedGame.IsRunning}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource ThemeRunningBadgeBackgroundBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding SelectedGame.StatusText}" FontSize="11">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource ThemeIdleBadgeForegroundBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedGame.IsRunning}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource ThemeStatusRunningBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                    <TextBlock Text="{Binding SelectedGame.PlaytimeText}" FontSize="11" VerticalAlignment="Center"
+                                               Margin="0,0,14,0" Foreground="{DynamicResource ThemeSecondaryBrush}"
+                                               ToolTip="{Binding SelectedGame.PlaytimeDetailText}"/>
+                                    <TextBlock Text="{Binding SelectedGame.GameId}" FontSize="11" VerticalAlignment="Center"
+                                               FontFamily="Consolas" Foreground="{DynamicResource ThemeMutedBrush}"
+                                               ToolTip="共享 GameId"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Button MinWidth="96" Margin="0,0,8,0"
+                                            Style="{StaticResource PrimaryButtonStyle}"
+                                            IsEnabled="{Binding SelectedGame.CanToggleLaunch}"
+                                            Command="{Binding ToggleLaunchCommand}"
+                                            CommandParameter="{Binding SelectedGame}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding SelectedGame.LaunchIconText}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding SelectedGame.LaunchActionText}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Content="编辑…" Style="{StaticResource DetailActionButtonStyle}"
+                                            Command="{Binding EditGameCommand}" CommandParameter="{Binding SelectedGame}"/>
+                                    <Button Content="{Binding SelectedGame.HideActionText}" Style="{StaticResource DetailActionButtonStyle}"
+                                            Command="{Binding ToggleHideCommand}" CommandParameter="{Binding SelectedGame}"/>
+                                    <Button Content="删除…" Style="{StaticResource DetailActionButtonStyle}"
+                                            IsEnabled="{Binding SelectedGame.CanDelete}"
+                                            Command="{Binding DeleteGameCommand}" CommandParameter="{Binding SelectedGame}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 游戏信息卡片 -->
+                    <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Margin="16,14,16,0" Padding="16,12">
+                        <StackPanel>
+                            <TextBlock Text="游戏信息" Style="{StaticResource SectionTitleTextBlockStyle}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="存档目录" Style="{StaticResource InfoLabelStyle}" Margin="0,0,10,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedGame.SavePathDisplay}"
+                                           Style="{StaticResource InfoValueStyle}" Margin="0,0,0,6"
+                                           ToolTip="{Binding SelectedGame.SavePath}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="进程名" Style="{StaticResource InfoLabelStyle}" Margin="0,0,10,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedGame.ProcessNamesText}"
+                                           Style="{StaticResource InfoValueStyle}" Margin="0,0,0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="游戏程序" Style="{StaticResource InfoLabelStyle}" Margin="0,0,10,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedGame.ExecutablePathText}"
+                                           Style="{StaticResource InfoValueStyle}" Margin="0,0,0,6"
+                                           ToolTip="{Binding SelectedGame.ExecutablePathText}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="游戏时长" Style="{StaticResource InfoLabelStyle}" Margin="0,0,10,6"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedGame.PlaytimeText}"
+                                           Style="{StaticResource InfoValueStyle}" Margin="0,0,0,6"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="最近游玩" Style="{StaticResource InfoLabelStyle}" Margin="0,0,10,6"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedGame.LastPlayedText}"
+                                           Style="{StaticResource InfoValueStyle}" Margin="0,0,0,6"/>
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="GameId" Style="{StaticResource InfoLabelStyle}"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedGame.ShortGameId}"
+                                           Style="{StaticResource InfoValueStyle}" FontFamily="Consolas"
+                                           ToolTip="{Binding SelectedGame.GameId}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 最近游戏记录 -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}" Margin="16,12,16,16" Padding="16,12">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="最近游戏记录"
+                                       Style="{StaticResource SectionTitleTextBlockStyle}" Margin="0,0,0,4"/>
+                            <TextBlock DockPanel.Dock="Top" Text="{Binding SelectedSessionsHint}" FontSize="11"
+                                       Foreground="{DynamicResource ThemeMutedBrush}" Margin="0,0,0,6"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <ListView ItemsSource="{Binding RecentSessions}" BorderThickness="0"
+                                      Background="Transparent"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem" BasedOn="{StaticResource AppListViewItemStyle}">
+                                        <Setter Property="MinHeight" Value="26"/>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="开始时间" Width="150"
+                                                        DisplayMemberBinding="{Binding StartDisplay}"/>
+                                        <GridViewColumn Header="结束时间" Width="150"
+                                                        DisplayMemberBinding="{Binding EndDisplay}"/>
+                                        <GridViewColumn Header="时长" Width="100"
+                                                        DisplayMemberBinding="{Binding DurationDisplay}"/>
+                                        <GridViewColumn Header="结束原因" Width="150"
+                                                        DisplayMemberBinding="{Binding ReasonDisplay}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </Grid>
         </Grid>
     </DockPanel>
 </UserControl>

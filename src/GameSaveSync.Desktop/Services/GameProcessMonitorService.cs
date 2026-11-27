@@ -64,14 +64,14 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
     /// <summary>
     /// 游戏启动后自动探测真实进程名（处理启动器拉起子进程、进程重建等情况）：
     /// 在 <paramref name="timeout"/> 内轮询系统进程，匹配“与启动的 exe 同名”或
-    /// “可执行文件位于游戏 exe 所在目录下”的进程，返回带 .exe 后缀的进程名集合。
-    /// 探测不到返回空列表（不报错）。
+    /// “可执行文件位于游戏 exe 所在目录下”的进程，只返回一个进程名（带 .exe 后缀）。
+    /// 探测不到返回 null（不报错）。
     /// </summary>
-    public async Task<IReadOnlyList<string>> DetectProcessNamesAsync(
+    public async Task<string?> DetectProcessNamesAsync(
         string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(executablePath))
-            return Array.Empty<string>();
+            return null;
 
         var exeName = ProcessNameNormalizer.Normalize(Path.GetFileName(executablePath));
         var gameDir = Path.GetDirectoryName(Path.GetFullPath(executablePath));
@@ -82,46 +82,73 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
 
         while (DateTime.UtcNow < deadline)
         {
-            var names = await Task.Run(() => ScanRunningProcessNames(exeName, gameDir), cancellationToken)
+            var candidates = await Task.Run(() => ScanRunningProcesses(exeName, gameDir), cancellationToken)
                 .ConfigureAwait(false);
-            if (names.Count > 0)
+            var selected = SelectBestProcessName(candidates);
+            if (selected is not null)
             {
-                // 再等一轮，尽量把启动器随后拉起的真正游戏进程也纳入
+                // 再等一轮，尽量把启动器随后拉起的真正游戏进程也纳入后重新挑选
                 await Task.Delay(TimeSpan.FromSeconds(1.5), cancellationToken).ConfigureAwait(false);
-                var extra = await Task.Run(() => ScanRunningProcessNames(exeName, gameDir), cancellationToken)
+                var extra = await Task.Run(() => ScanRunningProcesses(exeName, gameDir), cancellationToken)
                     .ConfigureAwait(false);
-                foreach (var name in extra)
-                    names.Add(name);
+                selected = SelectBestProcessName(candidates.Concat(extra)) ?? selected;
 
-                var result = names.ToList();
-                Log.Information("自动识别到游戏进程名：{Names}", string.Join(", ", result));
-                return result;
+                Log.Information("自动识别到游戏进程名：{Name}", selected);
+                return selected;
             }
             await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
         }
 
         Log.Information("未能自动识别游戏进程名（exe={Exe}，超时 {Timeout} 秒）。",
             executablePath, timeout.TotalSeconds);
-        return Array.Empty<string>();
+        return null;
     }
 
     /// <summary>
     /// 立即扫描一次：返回“与指定 exe 同名”或“可执行文件位于该 exe 所在目录”的进程名
-    /// （带 .exe 后缀）。用于编辑对话框中的手动“自动识别”。
+    /// （带 .exe 后缀，最多一个）。用于编辑对话框中的手动“自动识别”。
     /// </summary>
-    public static IReadOnlyList<string> DetectRunningProcessNames(string executablePath)
+    public static string? DetectRunningProcessNames(string executablePath)
     {
         if (string.IsNullOrWhiteSpace(executablePath))
-            return Array.Empty<string>();
+            return null;
 
         var exeName = ProcessNameNormalizer.Normalize(Path.GetFileName(executablePath));
         var gameDir = Path.GetDirectoryName(Path.GetFullPath(executablePath));
-        return ScanRunningProcessNames(exeName, gameDir).ToList();
+        return SelectBestProcessName(ScanRunningProcesses(exeName, gameDir));
     }
 
-    private static HashSet<string> ScanRunningProcessNames(string exeName, string? gameDir)
+    private readonly record struct ProcessCandidate(
+        string Name, bool MatchesExe, bool HasMainWindow, DateTime StartTimeUtc);
+
+    /// <summary>
+    /// 从候选进程里只挑一个：优先与游戏 exe 同名的进程（游戏程序本身）；
+    /// 否则优先有主窗口的进程；仍无法区分时取启动时间最早的一个。
+    /// </summary>
+    private static string? SelectBestProcessName(IEnumerable<ProcessCandidate> candidates)
     {
-        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // 同名进程（多个 PID）只保留启动最早的一个
+        var distinct = candidates
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderBy(c => c.StartTimeUtc).First())
+            .ToList();
+        if (distinct.Count == 0)
+            return null;
+
+        var exeMatch = distinct.Where(c => c.MatchesExe).OrderBy(c => c.StartTimeUtc).ToList();
+        if (exeMatch.Count > 0)
+            return exeMatch[0].Name;
+
+        var withWindow = distinct.Where(c => c.HasMainWindow).OrderBy(c => c.StartTimeUtc).ToList();
+        if (withWindow.Count > 0)
+            return withWindow[0].Name;
+
+        return distinct.OrderBy(c => c.StartTimeUtc).First().Name;
+    }
+
+    private static List<ProcessCandidate> ScanRunningProcesses(string exeName, string? gameDir)
+    {
+        var found = new List<ProcessCandidate>();
         var dirPrefix = string.IsNullOrEmpty(gameDir)
             ? null
             : gameDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -135,29 +162,51 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
                     var normalized = ProcessNameNormalizer.Normalize(process.ProcessName);
                     if (normalized.Length == 0)
                         continue;
-                    if (string.Equals(normalized, exeName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        found.Add(normalized);
-                        continue;
-                    }
-                    if (dirPrefix is null)
-                        continue;
 
-                    string? filePath;
+                    var matchesExe = string.Equals(normalized, exeName, StringComparison.OrdinalIgnoreCase);
+                    if (!matchesExe)
+                    {
+                        if (dirPrefix is null)
+                            continue;
+
+                        string? filePath;
+                        try
+                        {
+                            filePath = process.MainModule?.FileName;
+                        }
+                        catch
+                        {
+                            // 受保护进程 / 位数不同时无法读取模块路径，忽略即可
+                            continue;
+                        }
+                        if (filePath is null ||
+                            !filePath.StartsWith(dirPrefix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+                    }
+
+                    bool hasWindow;
                     try
                     {
-                        filePath = process.MainModule?.FileName;
+                        hasWindow = process.MainWindowHandle != IntPtr.Zero;
                     }
                     catch
                     {
-                        // 受保护进程 / 位数不同时无法读取模块路径，忽略即可
-                        continue;
+                        hasWindow = false;
                     }
-                    if (filePath is not null &&
-                        filePath.StartsWith(dirPrefix, StringComparison.OrdinalIgnoreCase))
+
+                    DateTime startTime;
+                    try
                     {
-                        found.Add(normalized);
+                        startTime = process.StartTime.ToUniversalTime();
                     }
+                    catch
+                    {
+                        startTime = DateTime.MaxValue;
+                    }
+
+                    found.Add(new ProcessCandidate(normalized, matchesExe, hasWindow, startTime));
                 }
                 catch (Exception ex)
                 {
