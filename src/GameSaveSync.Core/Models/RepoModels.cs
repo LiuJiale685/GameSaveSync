@@ -85,6 +85,39 @@ public sealed class SharedGameSettings
 }
 
 /// <summary>
+/// games/&lt;game-id&gt;/sessions/&lt;device-short-id&gt;/&lt;session-id&gt;.json — 不可变的游戏运行会话记录。
+/// 每台设备只发布自己产生的会话，SessionId 即身份，多设备合并时天然去重。
+/// </summary>
+public sealed class SharedPlaySession
+{
+    [JsonPropertyOrder(0)]
+    public int SchemaVersion { get; set; } = RepoProtocol.SchemaVersion;
+
+    [JsonPropertyOrder(1)]
+    public string SessionId { get; set; } = string.Empty;
+
+    [JsonPropertyOrder(2)]
+    public string GameId { get; set; } = string.Empty;
+
+    /// <summary>产生该会话的设备。</summary>
+    [JsonPropertyOrder(3)]
+    public string DeviceId { get; set; } = string.Empty;
+
+    [JsonPropertyOrder(4)]
+    public string StartedAt { get; set; } = string.Empty;
+
+    [JsonPropertyOrder(5)]
+    public string EndedAt { get; set; } = string.Empty;
+
+    /// <summary>结束原因（对应本机 PlaySessionEndReason：1 正常退出 / 2 程序关闭 / 3 中断）。</summary>
+    [JsonPropertyOrder(6)]
+    public int EndReason { get; set; }
+
+    [JsonPropertyOrder(7)]
+    public long DurationSeconds { get; set; }
+}
+
+/// <summary>
 /// Manifest 内的单个文件条目。
 /// </summary>
 public sealed class ManifestFileEntry

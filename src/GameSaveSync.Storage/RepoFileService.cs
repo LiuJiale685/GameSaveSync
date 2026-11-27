@@ -160,6 +160,38 @@ public sealed class RepoFileService
             RepoPaths.GameSettingsKey(settings.GameId), stream, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>发布一条游戏运行会话（不可变，create-if-absent；跨设备合并时长用）。</summary>
+    public async Task WritePlaySessionAsync(
+        SharedPlaySession session, CancellationToken cancellationToken = default)
+    {
+        var bytes = RepoJson.SerializeUtf8(session);
+        var hash = await ComputeSha256Async(bytes, cancellationToken).ConfigureAwait(false);
+        await using var stream = new MemoryStream(bytes);
+        await _store.PutImmutableAsync(
+            RepoPaths.SessionKey(session.GameId, session.DeviceId, session.SessionId),
+            stream, hash, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>扫描某游戏在仓库中的全部会话记录（跨设备）。</summary>
+    public async Task<IReadOnlyList<SharedPlaySession>> ListPlaySessionsAsync(
+        string gameId, CancellationToken cancellationToken = default)
+    {
+        var keys = await _store
+            .ListAsync(RepoPaths.SessionsPrefix(gameId), cancellationToken)
+            .ConfigureAwait(false);
+        var result = new List<SharedPlaySession>();
+        foreach (var key in keys)
+        {
+            await using var stream = await _store.OpenReadAsync(key, cancellationToken).ConfigureAwait(false);
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            var session = RepoJson.Deserialize<SharedPlaySession>(json);
+            if (session is not null)
+                result.Add(session);
+        }
+        return result;
+    }
+
     /// <summary>写入 Manifest，返回其内容 SHA256（manifestHash）。</summary>
     public async Task<string> WriteManifestAsync(
         string gameId, Manifest manifest, CancellationToken cancellationToken = default)

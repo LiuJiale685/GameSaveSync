@@ -37,6 +37,13 @@ public static partial class RepoPaths
     public static string CommitsPrefix(string gameId)
         => $"games/{NormalizeGuid(gameId)}/commits/";
 
+    /// <summary>游戏运行会话（不可变，每会话一个文件，跨设备合并时长用）。</summary>
+    public static string SessionKey(string gameId, string deviceId, string sessionId)
+        => $"games/{NormalizeGuid(gameId)}/sessions/{DeviceShortId(deviceId)}/{NormalizeGuid(sessionId)}.json";
+
+    public static string SessionsPrefix(string gameId)
+        => $"games/{NormalizeGuid(gameId)}/sessions/";
+
     public static string GamesPrefix => "games/";
 
     public static string DevicesPrefix => "devices/";

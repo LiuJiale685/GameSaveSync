@@ -590,27 +590,120 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
 
     // ---------- 游戏时长统计 ----------
 
-    /// <summary>某游戏的时长汇总（总时长、会话数、平均/最长、首次/最后游戏时间）。</summary>
-    public Task<PlaySessionStats> GetGamePlayStatsAsync(
+    /// <summary>
+    /// 某游戏的时长汇总（总时长、会话数、平均/最长、首次/最后游戏时间）。
+    /// 查询前会与共享仓库双向同步会话，因此总时长是跨设备累加值。
+    /// </summary>
+    public async Task<PlaySessionStats> GetGamePlayStatsAsync(
         string gameId, CancellationToken ct = default)
-        => _playSessions.GetStatsAsync(gameId, ct);
+    {
+        await SyncPlaySessionsAsync(gameId, ct).ConfigureAwait(false);
+        return await _playSessions.GetStatsAsync(gameId, ct).ConfigureAwait(false);
+    }
 
     /// <summary>某游戏最近的会话明细（默认最近 10 条）。</summary>
-    public Task<IReadOnlyList<PlaySessionRecord>> GetRecentPlaySessionsAsync(
+    public async Task<IReadOnlyList<PlaySessionRecord>> GetRecentPlaySessionsAsync(
         string gameId, int topN = 10, CancellationToken ct = default)
-        => _playSessions.GetRecentSessionsAsync(gameId, topN, ct);
+    {
+        await SyncPlaySessionsAsync(gameId, ct).ConfigureAwait(false);
+        return await _playSessions.GetRecentSessionsAsync(gameId, topN, ct).ConfigureAwait(false);
+    }
 
     /// <summary>某游戏已结束的会话次数（用于判断“是否已玩过一次”）。</summary>
     public Task<int> CountFinishedPlaySessionsAsync(
         string gameId, CancellationToken ct = default)
         => _playSessions.CountFinishedSessionsAsync(gameId, ct);
 
+    /// <summary>会话同步节流：避免每次统计查询都全量扫描仓库。</summary>
+    private static readonly TimeSpan SessionSyncInterval = TimeSpan.FromSeconds(15);
+
+    private readonly Dictionary<string, DateTimeOffset> _sessionSyncedAt =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 与共享仓库双向同步某游戏的运行会话：
+    /// 先发布本机产生的已结束会话，再导入其他设备发布的会话。
+    /// 未绑定仓库时直接返回（时长仍按本机统计）。
+    /// </summary>
+    /// <param name="force">true 绕过节流（会话刚结束、需要立即发布时使用）。</param>
+    public async Task SyncPlaySessionsAsync(
+        string gameId, CancellationToken ct = default, bool force = false)
+    {
+        if (_repoFiles is null)
+            return;
+
+        if (!force)
+        {
+            lock (_sessionSyncedAt)
+            {
+                if (_sessionSyncedAt.TryGetValue(gameId, out var last)
+                    && DateTimeOffset.UtcNow - last < SessionSyncInterval)
+                {
+                    return;
+                }
+                _sessionSyncedAt[gameId] = DateTimeOffset.UtcNow;
+            }
+        }
+        else
+        {
+            lock (_sessionSyncedAt)
+                _sessionSyncedAt[gameId] = DateTimeOffset.UtcNow;
+        }
+
+        try
+        {
+            // 1) 本机产生的会话发布到仓库（不可变 create-if-absent，重复发布无副作用）。
+            var local = await _playSessions.GetFinishedLocalSessionsAsync(gameId, ct).ConfigureAwait(false);
+            foreach (var session in local)
+            {
+                await _repoFiles.WritePlaySessionAsync(new SharedPlaySession
+                {
+                    SessionId = session.SessionId,
+                    GameId = gameId,
+                    DeviceId = Device.DeviceId,
+                    StartedAt = session.StartedAt,
+                    EndedAt = session.EndedAt,
+                    EndReason = (int)session.EndReason,
+                    DurationSeconds = session.DurationSeconds,
+                }, ct).ConfigureAwait(false);
+            }
+
+            // 2) 导入其他设备的会话（按 SessionId 去重，重复导入无副作用）。
+            var remote = await _repoFiles.ListPlaySessionsAsync(gameId, ct).ConfigureAwait(false);
+            var imported = new List<PlaySessionRecord>();
+            foreach (var session in remote)
+            {
+                if (string.Equals(session.DeviceId, Device.DeviceId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (session.EndReason == 0 || string.IsNullOrWhiteSpace(session.EndedAt))
+                    continue;
+                if (!UtcClock.TryParse(session.StartedAt, out _)
+                    || !UtcClock.TryParse(session.EndedAt, out _))
+                {
+                    continue; // 时间格式非法：忽略，避免污染本机统计
+                }
+                imported.Add(new PlaySessionRecord(
+                    session.SessionId, gameId, session.StartedAt, session.EndedAt,
+                    (PlaySessionEndReason)session.EndReason, session.DurationSeconds));
+            }
+            await _playSessions.ImportSessionsAsync(imported, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // 仓库不可用（网盘未同步等）不影响本机统计，下次查询会重试。
+            Log.Warning(ex, "同步游戏 {GameId} 的运行会话失败，本次按本机数据统计。", gameId);
+        }
+    }
+
     /// <summary>导出全部会话明细为 CSV（UTF-8 带 BOM，Excel 可直接打开）。返回写入的文件路径。</summary>
     public async Task<string> ExportPlaySessionsCsvAsync(
         string filePath, CancellationToken ct = default)
     {
-        var sessions = await _playSessions.GetAllSessionsAsync(ct).ConfigureAwait(false);
         var games = await _gameRepo.ListGamesAsync(ct).ConfigureAwait(false);
+        foreach (var game in games)
+            await SyncPlaySessionsAsync(game.GameId, ct).ConfigureAwait(false);
+
+        var sessions = await _playSessions.GetAllSessionsAsync(ct).ConfigureAwait(false);
         var nameById = games.ToDictionary(g => g.GameId, g => g.Name, StringComparer.OrdinalIgnoreCase);
 
         static string Csv(string? value)

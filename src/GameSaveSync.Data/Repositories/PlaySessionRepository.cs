@@ -206,6 +206,66 @@ public sealed class PlaySessionRepository
             var result = await cmd.ExecuteScalarAsync(ct);
             return Convert.ToInt32(result);
         }, ct);
+
+    /// <summary>
+    /// 本机产生（非仓库导入）且已结束的会话，用于发布到共享仓库。
+    /// 导入的会话保持 IsImported=1，避免被再次发布成其他设备路径下的副本。
+    /// </summary>
+    public Task<IReadOnlyList<PlaySessionRecord>> GetFinishedLocalSessionsAsync(
+        string gameId, CancellationToken ct = default)
+        => _db.ExecuteAsync(async conn =>
+        {
+            var list = new List<PlaySessionRecord>();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                SELECT SessionId, GameId, StartedAt, EndedAt, EndReason, DurationSeconds
+                FROM PlaySessions
+                WHERE GameId = $g AND EndedAt IS NOT NULL AND IsImported = 0
+                ORDER BY StartedAt
+                """;
+            cmd.Parameters.AddWithValue("$g", gameId);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                list.Add(new PlaySessionRecord(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetString(3),
+                    (PlaySessionEndReason)reader.GetInt64(4),
+                    reader.GetInt64(5)));
+            }
+            return (IReadOnlyList<PlaySessionRecord>)list;
+        }, ct);
+
+    /// <summary>批量导入其他设备发布的会话（按 SessionId 去重，已存在则忽略）。</summary>
+    public Task ImportSessionsAsync(
+        IEnumerable<PlaySessionRecord> sessions, CancellationToken ct = default)
+    {
+        var items = sessions.ToList();
+        if (items.Count == 0)
+            return Task.CompletedTask;
+
+        return _db.ExecuteAsync(async conn =>
+        {
+            foreach (var s in items)
+            {
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = """
+                    INSERT OR IGNORE INTO PlaySessions
+                        (SessionId, GameId, StartedAt, EndedAt, LastSeenAt, EndReason, DurationSeconds, IsImported)
+                    VALUES ($id, $g, $s, $e, $e, $r, $d, 1)
+                    """;
+                cmd.Parameters.AddWithValue("$id", s.SessionId);
+                cmd.Parameters.AddWithValue("$g", s.GameId);
+                cmd.Parameters.AddWithValue("$s", s.StartedAt);
+                cmd.Parameters.AddWithValue("$e", s.EndedAt);
+                cmd.Parameters.AddWithValue("$r", (int)s.EndReason);
+                cmd.Parameters.AddWithValue("$d", s.DurationSeconds);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+        }, ct);
+    }
 }
 
 /// <summary>单条游戏会话记录。</summary>

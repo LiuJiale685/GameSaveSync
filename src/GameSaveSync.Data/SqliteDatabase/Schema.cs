@@ -127,7 +127,8 @@ public static class Schema
             EndedAt TEXT,
             LastSeenAt TEXT NOT NULL,
             EndReason INTEGER NOT NULL DEFAULT 0,
-            DurationSeconds INTEGER NOT NULL DEFAULT 0
+            DurationSeconds INTEGER NOT NULL DEFAULT 0,
+            IsImported INTEGER NOT NULL DEFAULT 0
         )
         """,
         "CREATE INDEX IF NOT EXISTS IX_PlaySessions_Game ON PlaySessions(GameId)",
@@ -150,6 +151,10 @@ public static class Schema
 
         await EnsureColumnAsync(connection, "Games", "Hidden",
             "ALTER TABLE Games ADD COLUMN Hidden INTEGER NOT NULL DEFAULT 0", cancellationToken)
+            .ConfigureAwait(false);
+
+        await EnsureColumnAsync(connection, "PlaySessions", "IsImported",
+            "ALTER TABLE PlaySessions ADD COLUMN IsImported INTEGER NOT NULL DEFAULT 0", cancellationToken)
             .ConfigureAwait(false);
 
         await using var versionCmd = connection.CreateCommand();

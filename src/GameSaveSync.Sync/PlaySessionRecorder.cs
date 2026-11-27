@@ -30,6 +30,9 @@ public sealed class PlaySessionRecorder
         _now = nowProvider ?? UtcClock.Now;
     }
 
+    /// <summary>会话结束后回调（用于把本机会话发布到共享仓库，实现跨设备时长累加）。</summary>
+    public Func<string, CancellationToken, Task>? SessionFinishedAsync { get; set; }
+
     /// <summary>启动时调用：把上次崩溃遗留的进行中会话按 LastSeenAt 收尾。</summary>
     public async Task StartAsync(CancellationToken ct = default)
     {
@@ -51,8 +54,14 @@ public sealed class PlaySessionRecorder
         try
         {
             await _repo.CloseAllAsync(_now(), PlaySessionEndReason.AppClosed, ct).ConfigureAwait(false);
+            string[] runningGames;
             lock (_active)
+            {
+                runningGames = _active.Keys.ToArray();
                 _active.Clear();
+            }
+            foreach (var gameId in runningGames)
+                await NotifySessionFinishedAsync(gameId, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -89,11 +98,27 @@ public sealed class PlaySessionRecorder
                 lock (_active)
                     _active.Remove(gameId);
                 Log.Information("游戏 {GameId} 已退出，会话 {SessionId} 结束。", gameId, active);
+                await NotifySessionFinishedAsync(gameId, ct).ConfigureAwait(false);
             }
         }
         finally
         {
             _gate.Release();
+        }
+    }
+
+    /// <summary>触发会话结束回调；失败只记日志，不影响会话记录本身。</summary>
+    private async Task NotifySessionFinishedAsync(string gameId, CancellationToken ct)
+    {
+        if (SessionFinishedAsync is null)
+            return;
+        try
+        {
+            await SessionFinishedAsync(gameId, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "发布游戏 {GameId} 会话到共享仓库失败，将在下次统计时重试。", gameId);
         }
     }
 }

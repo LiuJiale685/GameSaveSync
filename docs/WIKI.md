@@ -68,7 +68,8 @@ GameSaveVault/
 ├── games/<game-uuid>/
 │   ├── game.json                               # 共享游戏元数据（create-if-absent，不可变）
 │   ├── manifests/<manifest-sha256>.json        # 版本文件清单（内容寻址）
-│   └── commits/<device8>/<commit-uuid>.json    # 提交记录（device8=设备ID前8位，缓解路径长度）
+│   ├── commits/<device8>/<commit-uuid>.json    # 提交记录（device8=设备ID前8位，缓解路径长度）
+│   └── sessions/<device8>/<session-uuid>.json  # 游戏运行会话（不可变，跨设备累加时长）
 └── objects/sha256/<hash前2位>/<完整hash>       # 存档文件内容（内容寻址，天然去重）
 ```
 
@@ -77,6 +78,8 @@ GameSaveVault/
 **确定性序列化**（`RepoJson`）：固定属性顺序（`JsonPropertyOrder`）、2 空格缩进、UTF-8 无 BOM、Invariant Culture。**保证内容相同的存档在任何设备上算出相同的 manifestHash**——这是 Manifest 内容寻址可行的前提。
 
 **为什么没有 current.json 指针**：共享可变指针在网盘同步下极易产生冲突副本，且"最后写入"在网盘语义下不可靠。改为每台设备发布自己的不可变 Commit，Head 由扫描全部 Commit 计算得出。
+
+**游戏运行会话（时长）同步**：`games/<gameId>/sessions/<device8>/<sessionId>.json` 同样是不可变、create-if-absent。每台设备只发布本机产生的已结束会话，其他设备扫描后按 `SessionId` 去重导入本地 `PlaySessions`（`IsImported=1`，不会再被反向发布），因此**总时长是跨设备累加值**，且重复同步不会重复计数。同步是双向、幂等、可离线的：仓库不可用时按本机数据统计，下次查询自动收敛。
 
 **依赖完整性**（网盘乱序到达的关键容忍）：Commit 文件先到齐 ≠ 可应用。`SyncEngine` 校验 Manifest 存在且全部 Object 到位（大小 + 哈希）后，才允许应用；否则标记 `WaitingForFiles` 继续等待。
 
@@ -172,7 +175,7 @@ SQLite（`%LOCALAPPDATA%\GameSaveSync\state.db`，绝不入云盘），单写者
 4. **不跟随 ReparsePoint**：扫描与枚举跳过符号链接/junction，防仓库外泄与循环
 5. **schemaVersion 校验**：仓库文件版本不匹配时拒绝操作（为未来升级留门）
 6. **冲突副本容忍**：网盘生成的 `xxx (1)` 等非规范命名文件在列举时被忽略
-7. **本机数据不入云**：设备 ID、本机路径、进程名只存本地 SQLite
+7. **本机数据不入云**：设备 ID、本机存档路径、可执行文件路径、自动备份开关、已应用基线、恢复 Journal 只存本地 SQLite。注意：**进程名与游戏运行会话会上云**（进程名存 `settings.json`，会话存 `sessions/`），机器名也会随 `devices/` 注册文件上传
 8. **写入原子性**：临时文件 + 校验 + 改名，绝不直接写目标路径
 
 ## 9. 测试场景映射

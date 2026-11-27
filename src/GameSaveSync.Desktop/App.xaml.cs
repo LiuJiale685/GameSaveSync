@@ -105,6 +105,8 @@ public partial class App : Application
             // ---------- 游戏时长会话记录（开始 / 心跳 / 结束） ----------
             _sessionRecorder = _services.GetRequiredService<PlaySessionRecorder>();
             _sessionRecorder.StartAsync().GetAwaiter().GetResult();
+            _sessionRecorder.SessionFinishedAsync =
+                (gameId, ct) => appService.SyncPlaySessionsAsync(gameId, ct, force: true);
             _monitor.SessionTickAsync = (gameId, running, ct) => _sessionRecorder.OnTickAsync(gameId, running, ct);
 
             _monitor.Start();

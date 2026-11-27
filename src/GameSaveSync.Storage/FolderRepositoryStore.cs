@@ -184,6 +184,14 @@ public sealed class FolderRepositoryStore : IRepositoryStore
                 && RepoPaths.IsValidDeviceShortId(segments[3])
                 && RepoPaths.TryGetCommitIdFromFileName(fileName) is not null;
         }
+        if (relativeKey.Contains("/sessions/", StringComparison.Ordinal))
+        {
+            var segments = relativeKey.Split('/');
+            // games/<gid>/sessions/<device8>/<uuid>.json
+            return segments.Length == 5
+                && RepoPaths.IsValidDeviceShortId(segments[3])
+                && RepoPaths.TryGetCommitIdFromFileName(fileName) is not null;
+        }
         if (relativeKey.StartsWith(RepoPaths.ObjectsPrefix, StringComparison.Ordinal))
         {
             return RepoPaths.TryGetObjectSha256FromFileName(fileName) is not null;
