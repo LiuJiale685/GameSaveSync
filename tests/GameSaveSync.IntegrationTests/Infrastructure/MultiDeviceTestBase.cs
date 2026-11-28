@@ -14,7 +14,9 @@ namespace GameSaveSync.IntegrationTests.Infrastructure;
 public sealed class NeverRunningProcessChecker : IGameProcessChecker
 {
     public Task<bool> IsAnyRunningAsync(
-        IReadOnlyList<string> processNames, CancellationToken cancellationToken = default)
+        IReadOnlyList<string> processNames,
+        string? executablePath = null,
+        CancellationToken cancellationToken = default)
         => Task.FromResult(false);
 }
 

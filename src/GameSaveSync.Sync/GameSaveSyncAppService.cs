@@ -289,7 +289,7 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         string gameId, string message = "手动备份", CancellationToken ct = default)
     {
         EnsureRepoBound();
-        var (savePath, processNames) = await RequireGamePathsAsync(gameId, ct).ConfigureAwait(false);
+        var (savePath, _, _) = await RequireGamePathsAsync(gameId, ct).ConfigureAwait(false);
         var applied = await _applied.GetAsync(gameId, ct).ConfigureAwait(false);
         var parentIds = applied is null
             ? Array.Empty<string>()
@@ -325,8 +325,10 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         string gameId, CancellationToken ct = default)
     {
         EnsureRepoBound();
-        var (savePath, processNames) = await RequireGamePathsAsync(gameId, ct).ConfigureAwait(false);
-        return await _syncEngine!.ScanGameAsync(gameId, savePath, processNames, ct).ConfigureAwait(false);
+        var (savePath, processNames, executablePath) =
+            await RequireGamePathsAsync(gameId, ct).ConfigureAwait(false);
+        return await _syncEngine!
+            .ScanGameAsync(gameId, savePath, processNames, executablePath, ct).ConfigureAwait(false);
     }
 
     /// <summary>自动应用远端版本（须满足 ScanGameAsync 给出的 AutoApplyCandidate 条件）。</summary>
@@ -768,13 +770,13 @@ public sealed class GameSaveSyncAppService : IAsyncDisposable
         return _device;
     }
 
-    private async Task<(string SavePath, IReadOnlyList<string> ProcessNames)> RequireGamePathsAsync(
-        string gameId, CancellationToken ct)
+    private async Task<(string SavePath, IReadOnlyList<string> ProcessNames, string ExecutablePath)>
+        RequireGamePathsAsync(string gameId, CancellationToken ct)
     {
         var game = await _gameRepo.GetGameAsync(gameId, ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"本地配置中不存在游戏 {gameId}。");
         var savePath = await GetSavePath(gameId, ct).ConfigureAwait(false);
-        return (savePath, game.ProcessNames);
+        return (savePath, game.ProcessNames, game.ExecutablePath);
     }
 
     private async Task<string> GetSavePath(string gameId, CancellationToken ct)

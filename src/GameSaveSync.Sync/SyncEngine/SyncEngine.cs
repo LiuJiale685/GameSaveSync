@@ -83,10 +83,12 @@ public sealed class SyncEngine
     /// <param name="gameId">共享 gameId。</param>
     /// <param name="savePath">本机存档目录。</param>
     /// <param name="processNames">游戏进程名（可选）。</param>
+    /// <param name="executablePath">游戏程序路径（可选，用于区分同名进程）。</param>
     public async Task<GameSyncReport> ScanGameAsync(
         string gameId,
         string savePath,
         IReadOnlyList<string>? processNames = null,
+        string? executablePath = null,
         CancellationToken cancellationToken = default)
     {
         // 1. 扫描仓库全部 Commit（跨设备）并缓存
@@ -128,7 +130,8 @@ public sealed class SyncEngine
 
         // 4. 游戏运行检查（T08：运行期间禁止自动覆盖）
         var gameRunning = processNames is { Count: > 0 }
-            && await _processChecker.IsAnyRunningAsync(processNames, cancellationToken).ConfigureAwait(false);
+            && await _processChecker
+                .IsAnyRunningAsync(processNames, executablePath, cancellationToken).ConfigureAwait(false);
 
         var report = new GameSyncReport
         {

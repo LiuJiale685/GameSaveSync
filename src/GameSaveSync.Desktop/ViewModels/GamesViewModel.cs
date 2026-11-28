@@ -509,7 +509,7 @@ public sealed partial class GamesViewModel : ViewModelBase
         var ok = await RunBusyAsync(
             () =>
             {
-                stopped = _monitor.StopGame(row.Config.ProcessNames);
+                stopped = _monitor.StopGame(row.Config.ProcessNames, row.Config.ExecutablePath);
                 return Task.CompletedTask;
             },
             $"正在停止游戏「{row.Name}」…");

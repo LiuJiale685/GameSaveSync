@@ -63,7 +63,7 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
 
     /// <summary>
     /// 游戏启动后自动探测真实进程名（处理启动器拉起子进程、进程重建等情况）：
-    /// 在 <paramref name="timeout"/> 内轮询系统进程，匹配“与启动的 exe 同名”或
+    /// 在 <paramref name="timeout"/> 内轮询系统进程，匹配“可执行文件就是启动的 exe”或
     /// “可执行文件位于游戏 exe 所在目录下”的进程，只返回一个进程名（带 .exe 后缀）。
     /// 探测不到返回 null（不报错）。
     /// </summary>
@@ -73,8 +73,9 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
         if (string.IsNullOrWhiteSpace(executablePath))
             return null;
 
-        var exeName = ProcessNameNormalizer.Normalize(Path.GetFileName(executablePath));
-        var gameDir = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+        var exeFullPath = Path.GetFullPath(executablePath);
+        var exeName = ProcessNameNormalizer.Normalize(Path.GetFileName(exeFullPath));
+        var gameDir = Path.GetDirectoryName(exeFullPath);
         var deadline = DateTime.UtcNow + timeout;
 
         // 先给游戏/启动器一点启动时间
@@ -82,14 +83,16 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
 
         while (DateTime.UtcNow < deadline)
         {
-            var candidates = await Task.Run(() => ScanRunningProcesses(exeName, gameDir), cancellationToken)
+            var candidates = await Task.Run(
+                    () => ScanRunningProcesses(exeName, exeFullPath, gameDir), cancellationToken)
                 .ConfigureAwait(false);
             var selected = SelectBestProcessName(candidates);
             if (selected is not null)
             {
                 // 再等一轮，尽量把启动器随后拉起的真正游戏进程也纳入后重新挑选
                 await Task.Delay(TimeSpan.FromSeconds(1.5), cancellationToken).ConfigureAwait(false);
-                var extra = await Task.Run(() => ScanRunningProcesses(exeName, gameDir), cancellationToken)
+                var extra = await Task.Run(
+                        () => ScanRunningProcesses(exeName, exeFullPath, gameDir), cancellationToken)
                     .ConfigureAwait(false);
                 selected = SelectBestProcessName(candidates.Concat(extra)) ?? selected;
 
@@ -105,7 +108,7 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
     }
 
     /// <summary>
-    /// 立即扫描一次：返回“与指定 exe 同名”或“可执行文件位于该 exe 所在目录”的进程名
+    /// 立即扫描一次：返回“可执行文件就是指定 exe”或“位于该 exe 所在目录”的进程名
     /// （带 .exe 后缀，最多一个）。用于编辑对话框中的手动“自动识别”。
     /// </summary>
     public static string? DetectRunningProcessNames(string executablePath)
@@ -113,9 +116,10 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
         if (string.IsNullOrWhiteSpace(executablePath))
             return null;
 
-        var exeName = ProcessNameNormalizer.Normalize(Path.GetFileName(executablePath));
-        var gameDir = Path.GetDirectoryName(Path.GetFullPath(executablePath));
-        return SelectBestProcessName(ScanRunningProcesses(exeName, gameDir));
+        var exeFullPath = Path.GetFullPath(executablePath);
+        var exeName = ProcessNameNormalizer.Normalize(Path.GetFileName(exeFullPath));
+        var gameDir = Path.GetDirectoryName(exeFullPath);
+        return SelectBestProcessName(ScanRunningProcesses(exeName, exeFullPath, gameDir));
     }
 
     private readonly record struct ProcessCandidate(
@@ -146,12 +150,11 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
         return distinct.OrderBy(c => c.StartTimeUtc).First().Name;
     }
 
-    private static List<ProcessCandidate> ScanRunningProcesses(string exeName, string? gameDir)
+    private static List<ProcessCandidate> ScanRunningProcesses(
+        string exeName, string exeFullPath, string? gameDir)
     {
         var found = new List<ProcessCandidate>();
-        var dirPrefix = string.IsNullOrEmpty(gameDir)
-            ? null
-            : gameDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var dirPrefix = ToDirPrefix(gameDir);
 
         foreach (var process in Process.GetProcesses())
         {
@@ -163,27 +166,34 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
                     if (normalized.Length == 0)
                         continue;
 
-                    var matchesExe = string.Equals(normalized, exeName, StringComparison.OrdinalIgnoreCase);
-                    if (!matchesExe)
+                    string? filePath;
+                    try
                     {
-                        if (dirPrefix is null)
-                            continue;
+                        filePath = process.MainModule?.FileName;
+                    }
+                    catch
+                    {
+                        // 受保护进程 / 位数不同时无法读取模块路径：退化为按 exe 名匹配
+                        filePath = null;
+                    }
 
-                        string? filePath;
-                        try
-                        {
-                            filePath = process.MainModule?.FileName;
-                        }
-                        catch
-                        {
-                            // 受保护进程 / 位数不同时无法读取模块路径，忽略即可
+                    bool matchesExe;
+                    if (filePath is null)
+                    {
+                        if (!string.Equals(normalized, exeName, StringComparison.OrdinalIgnoreCase))
                             continue;
-                        }
-                        if (filePath is null ||
-                            !filePath.StartsWith(dirPrefix, StringComparison.OrdinalIgnoreCase))
-                        {
+                        matchesExe = true;
+                    }
+                    else
+                    {
+                        var exactMatch = string.Equals(
+                            filePath, exeFullPath, StringComparison.OrdinalIgnoreCase);
+                        var inGameDir = dirPrefix is not null
+                                        && filePath.StartsWith(dirPrefix, StringComparison.OrdinalIgnoreCase);
+                        if (!exactMatch && !inGameDir)
                             continue;
-                        }
+                        matchesExe = exactMatch
+                                     || string.Equals(normalized, exeName, StringComparison.OrdinalIgnoreCase);
                     }
 
                     bool hasWindow;
@@ -217,17 +227,22 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
         return found;
     }
 
-    /// <summary>停止游戏进程（先尝试优雅关闭窗口，超时后强制结束）。返回结束的进程数。</summary>
-    public int StopGame(IReadOnlyList<string> processNames)
+    /// <summary>
+    /// 停止游戏进程（先尝试优雅关闭窗口，超时后强制结束）。返回结束的进程数。
+    /// 传入 <paramref name="executablePath"/> 时只结束属于该游戏目录的进程，
+    /// 避免不同游戏使用相同进程名时误杀另一个游戏。
+    /// </summary>
+    public int StopGame(IReadOnlyList<string> processNames, string? executablePath = null)
     {
         var targets = BuildTargetSet(processNames);
         if (targets.Count == 0)
             return 0;
 
+        var (exeFullPath, dirPrefix) = ResolveExecutableScope(executablePath);
         var matched = new List<Process>();
         foreach (var process in Process.GetProcesses())
         {
-            if (targets.Contains(NormalizeProcessName(process.ProcessName)))
+            if (MatchesProcess(process, targets, exeFullPath, dirPrefix))
                 matched.Add(process);
             else
                 process.Dispose();
@@ -265,8 +280,9 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
         return closed;
     }
 
-    /// <summary>查询某游戏当前是否正在运行（按配置的进程名）。</summary>
-    public bool IsGameRunning(IReadOnlyList<string> processNames) => IsAnyRunning(processNames);
+    /// <summary>查询某游戏当前是否正在运行（按配置的进程名与游戏程序路径）。</summary>
+    public bool IsGameRunning(IReadOnlyList<string> processNames, string? executablePath = null)
+        => IsAnyRunning(processNames, executablePath);
 
     /// <summary>查询指定游戏当前运行状态；游戏未在监控列表或未配置进程名时返回 false。</summary>
     public bool GetRunningState(string gameId)
@@ -277,8 +293,10 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
 
     /// <inheritdoc cref="IGameProcessChecker.IsAnyRunningAsync" />
     public Task<bool> IsAnyRunningAsync(
-        IReadOnlyList<string> processNames, CancellationToken cancellationToken = default)
-        => Task.Run(() => IsAnyRunning(processNames), cancellationToken);
+        IReadOnlyList<string> processNames,
+        string? executablePath = null,
+        CancellationToken cancellationToken = default)
+        => Task.Run(() => IsAnyRunning(processNames, executablePath), cancellationToken);
 
     /// <summary>以最新游戏配置替换监控列表（保留已知运行状态，避免误触发）。</summary>
     public void UpdateGames(IReadOnlyList<LocalGameConfig> games)
@@ -292,6 +310,7 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
                 updated[game.GameId] = new WatchedGame(
                     game.GameId,
                     game.ProcessNames,
+                    game.ExecutablePath,
                     game.AutoBackup,
                     wasRunning: previous?.WasRunning ?? false);
             }
@@ -363,7 +382,7 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
                 continue;
             try
             {
-                var running = IsAnyRunning(game.ProcessNames);
+                var running = IsAnyRunning(game.ProcessNames, game.ExecutablePath);
                 if (game.WasRunning && !running && game.AutoBackup)
                 {
                     Log.Information("检测到游戏 {GameId} 进程退出，{Delay} 秒后自动备份。",
@@ -429,17 +448,18 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
         }
     }
 
-    private static bool IsAnyRunning(IReadOnlyList<string> processNames)
+    private static bool IsAnyRunning(IReadOnlyList<string> processNames, string? executablePath)
     {
         var targets = BuildTargetSet(processNames);
         if (targets.Count == 0)
             return false;
 
+        var (exeFullPath, dirPrefix) = ResolveExecutableScope(executablePath);
         foreach (var process in Process.GetProcesses())
         {
             using (process)
             {
-                if (targets.Contains(NormalizeProcessName(process.ProcessName)))
+                if (MatchesProcess(process, targets, exeFullPath, dirPrefix))
                     return true;
             }
         }
@@ -452,6 +472,76 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
             .Select(ProcessNameNormalizer.ToProcessName)
             .Where(name => name.Length > 0)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 解析游戏程序路径与所在目录。未配置游戏程序时两者均为 null，只能按进程名匹配。
+    /// </summary>
+    private static (string? ExeFullPath, string? DirPrefix) ResolveExecutableScope(string? executablePath)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath))
+            return (null, null);
+
+        try
+        {
+            var exeFullPath = Path.GetFullPath(executablePath.Trim());
+            return (exeFullPath, ToDirPrefix(Path.GetDirectoryName(exeFullPath)));
+        }
+        catch
+        {
+            // 路径非法：不再退化为“只看进程名”，否则同名游戏仍会互相误判。
+            return (string.Empty, null);
+        }
+    }
+
+    private static string? ToDirPrefix(string? directory)
+    {
+        if (string.IsNullOrEmpty(directory))
+            return null;
+        return directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+               + Path.DirectorySeparatorChar;
+    }
+
+    /// <summary>
+    /// 判断进程是否属于该游戏：进程名必须在配置列表中；
+    /// 配置了游戏程序时还要求可执行文件就是该程序，或位于游戏程序所在目录下，
+    /// 从而区分进程名相同、安装目录不同的两个游戏。
+    /// </summary>
+    private static bool MatchesProcess(
+        Process process,
+        HashSet<string> targets,
+        string? exeFullPath,
+        string? dirPrefix)
+    {
+        var name = NormalizeProcessName(process.ProcessName);
+        if (!targets.Contains(name))
+            return false;
+
+        // 未配置游戏程序：只能按进程名判断。
+        if (exeFullPath is null)
+            return true;
+
+        // 配置了游戏程序但路径非法：视为不匹配，避免误判。
+        if (exeFullPath.Length == 0)
+            return false;
+
+        string? filePath;
+        try
+        {
+            filePath = process.MainModule?.FileName;
+        }
+        catch
+        {
+            // 无法读取可执行文件路径（受保护进程等）：按不匹配处理，避免同名误判。
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(filePath))
+            return false;
+        if (string.Equals(filePath, exeFullPath, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return dirPrefix is not null
+               && filePath.StartsWith(dirPrefix, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>触发状态变化事件（订阅方异常不影响监控循环）。</summary>
     private void RaiseStateChanged(string gameId, bool isRunning)
@@ -476,11 +566,13 @@ public sealed class GameProcessMonitorService : IGameProcessChecker, IDisposable
     private sealed class WatchedGame(
         string gameId,
         IReadOnlyList<string> processNames,
+        string executablePath,
         bool autoBackup,
         bool wasRunning)
     {
         public string GameId { get; } = gameId;
         public IReadOnlyList<string> ProcessNames { get; } = processNames;
+        public string ExecutablePath { get; } = executablePath;
         public bool AutoBackup { get; } = autoBackup;
         public bool WasRunning { get; set; } = wasRunning;
     }
