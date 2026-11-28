@@ -7,10 +7,16 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $publishDir = Join-Path $repoRoot 'tmp\publish'
 $distDir = Join-Path $repoRoot 'dist'
 $issPath = Join-Path $PSScriptRoot 'GameSaveSync.iss'
-$iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+# Inno Setup 6 可能安装在全局或当前用户目录，按顺序取第一个存在的编译器
+$isccCandidates = @(
+    'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
+    'C:\Program Files\Inno Setup 6\ISCC.exe',
+    (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
+)
+$iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
-if (-not (Test-Path $iscc)) {
-    throw "未找到 Inno Setup 编译器：$iscc（请先安装 Inno Setup 6）"
+if (-not $iscc) {
+    throw "未找到 Inno Setup 编译器（已尝试：$($isccCandidates -join '；')），请先安装 Inno Setup 6。"
 }
 
 Write-Host '==> 1/3 发布自包含单文件程序…' -ForegroundColor Cyan
